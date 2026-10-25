@@ -1,0 +1,21 @@
+.clouddock-progress{margin:0;height:100vh;height:100dvh;display:flex;flex-direction:column;background:#fff;color:#303133;font:14px/1.5 system-ui,-apple-system,sans-serif}
+.clouddock-progress-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:0 0 auto;padding:calc(4px + env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 4px max(12px,env(safe-area-inset-left));border-bottom:1px solid #e4e7ed;background:#fff}
+.clouddock-progress-bar h1{font-size:16px;font-weight:600;margin:0;min-width:0}
+.clouddock-progress-bar a,.clouddock-progress-bar button,.clouddock-progress-message button{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 4px;background:none;border:0;color:#006de0;font:inherit;text-decoration:none;white-space:nowrap;cursor:pointer}
+.clouddock-progress-bar a:focus-visible,.clouddock-progress-bar button:focus-visible{outline:2px solid #006de0;outline-offset:2px}
+.clouddock-progress iframe{display:block;flex:1;min-height:0;width:100%;border:0;background:#fff}
+.clouddock-progress [hidden]{display:none!important}
+.clouddock-progress-message{padding:16px;margin:0;overflow-wrap:anywhere}
+.clouddock-progress-message button{margin-left:12px}
+.clouddock-progress-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex:0 0 auto;border-bottom:1px solid #e4e7ed;padding:0 12px}
+.clouddock-progress-tabs button{min-width:0;min-height:44px;padding:8px 4px;border:0;border-bottom:2px solid transparent;background:none;color:inherit;font:inherit;cursor:pointer}
+.clouddock-progress-tabs button[aria-current=page]{color:#006de0;border-bottom-color:currentColor;font-weight:600}
+.clouddock-progress-tabs button:focus-visible{outline:2px solid #006de0;outline-offset:-3px}
+.clouddock-progress-tabs button:disabled{opacity:.5;cursor:default}
+html[data-theme=dark]{--theme-other_background:#262626;--theme-color:#eee;--el-border-color-lighter:#444;--theme-theme:#65adff}
+html[data-theme=dark] .clouddock-progress{background:#222;color:#eee}
+html[data-theme=dark] .clouddock-progress-bar{background:#262626;border-color:#444}
+html[data-theme=dark] .clouddock-progress-bar a,html[data-theme=dark] .clouddock-progress-bar button{color:#65adff}
+html[data-theme=dark] .clouddock-progress-tabs{border-color:#444}
+html[data-theme=dark] .clouddock-progress-tabs button[aria-current=page]{color:#65adff}
+@media(min-width:769px){.clouddock-progress-tabs{grid-template-columns:repeat(4,minmax(0,1fr))}.clouddock-progress-bar{padding-left:24px;padding-right:24px}.clouddock-progress-bar h1{font-size:18px}}

@@ -1,0 +1,45 @@
+name: clouddock-nas
+services:
+  app:
+    image: jiangrui1994/cloudsaver@sha256:e2a7395420772ac3e5d9fd9d448ba135efca03ba864b5ad95f6f9b7df516c66c
+    pull_policy: never
+    container_name: clouddock-nas
+    entrypoint: ["/bin/sh", "/app/clouddock/entrypoint.sh"]
+    restart: unless-stopped
+    ports:
+      - "${BIND_IP:-192.168.2.61}:${APP_PORT:-7003}:8008"
+    environment:
+      NODE_ENV: production
+      ARIA2_RPC_URL: http://aria2:6800/jsonrpc
+      ARIA2_RPC_SECRET: ${ARIA2_RPC_SECRET:?Set ARIA2_RPC_SECRET}
+      TG_BOT_TOKEN: ""
+    volumes:
+      - ${RELEASE_PATH:?Set RELEASE_PATH}/native:/app/clouddock:ro
+      - ${RELEASE_PATH:?Set RELEASE_PATH}/web:/usr/share/nginx/html:ro
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ${NAS_DOWNLOAD_PATH:?Set NAS_DOWNLOAD_PATH}:/downloads
+    depends_on: [aria2]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8008/',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+  aria2:
+    image: p3terx/aria2-pro@sha256:086d1a37c586edb07ec0fb956bf9edd89d1d38d138ad5309ff96d510c8c9a011
+    pull_policy: never
+    container_name: clouddock-aria2
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1001}
+      RPC_SECRET: ${ARIA2_RPC_SECRET:?Set ARIA2_RPC_SECRET}
+      RPC_PORT: "6800"
+      UMASK_SET: "022"
+      UPDATE_TRACKERS: "false"
+      IPV6_MODE: "false"
+    volumes:
+      - ./aria2-config:/config
+      - ${NAS_DOWNLOAD_PATH:?Set NAS_DOWNLOAD_PATH}:/downloads

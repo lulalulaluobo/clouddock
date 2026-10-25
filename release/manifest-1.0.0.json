@@ -1,0 +1,13 @@
+{
+  "image": "lulalulaluobo/clouddock:1.0.0",
+  "platform": "linux/amd64",
+  "digest": "sha256:f65dea447b87802a679d1d7f821527872a3a975477cd3dbed8d37813be21efec",
+  "composePackage": "clouddock-1.0.0-compose.zip",
+  "packageSha256": "68d9e68059a4ed5691ab2ef6657d193b4869a81e6a7d31fa44111c75e3c94bed",
+  "files": {
+    "README.md": "45716ea2a94e134d083d140d70a69b009472c360e31fd48cf8d898a78a4c5d72",
+    "compose.yaml": "273aa94bd136365f38d3634f0e6ca665062ec747264df06c9cbee74cd663dd2f",
+    ".env.example": "8d5ba5d30ee873466ae38cf85b08209ae0d59b89fed708a95617b4ef294e11f8",
+    "RELEASE-1.0.0.md": "1a71e922107cee7a66697982882caa2e4d89b434df06d1a6bd9c377990cc34c1"
+  }
+}

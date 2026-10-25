@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>下载进度 · CloudDock</title>
+  <link rel="stylesheet" href="__CLOUDDOCK_CSS__">
+  <link rel="stylesheet" href="__PROGRESS_CSS__">
+  <script defer src="__CLOUDDOCK_CLIENT__"></script>
+  <script defer src="__PROGRESS_SCRIPT__"></script>
+</head>
+<body class="clouddock-progress">
+  <header class="clouddock-progress-bar">
+    <a href="/" class="clouddock-back">‹ 返回搜索</a>
+    <h1>下载进度</h1>
+    <button type="button" id="transfer-records">转存记录</button>
+  </header>
+  <nav class="clouddock-progress-tabs" aria-label="下载状态">
+    <button type="button" id="baidu-progress">百度下载</button>
+    <button type="button" data-view="downloading" disabled>下载中</button>
+    <button type="button" data-view="waiting" disabled>等待中</button>
+    <button type="button" data-view="stopped" disabled>已完成 / 已停止</button>
+  </nav>
+  <p class="clouddock-progress-message" role="status">正在连接下载服务…</p>
+  <iframe title="AriaNg 下载管理" id="ariang-frame" hidden></iframe>
+  <noscript>请启用 JavaScript 后查看下载进度。<a href="/">返回搜索</a></noscript>
+</body>
+</html>

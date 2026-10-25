@@ -1,0 +1,1 @@
+import{u as s}from"./userSetting-DaAWO_4w.js";const r=(e,t)=>`${e}${encodeURIComponent(t)}`,n="/assets/default-B7Yg5Hwo.png",u=e=>{var o;const t=s(),a=(o=t.globalSetting)==null?void 0:o.NoImageUrl;return e?t.imagesSource==="proxy"?r("/api/tele-images/?url=",e):e:a||n},m=e=>r("/api/douban-images/?url=",e);export{m as a,u as g};

@@ -1,0 +1,85 @@
+.clouddock-target{flex:0 0 auto;box-sizing:border-box;padding:4px 12px;border-top:1px solid var(--el-border-color-lighter,#ebeef5);background:var(--theme-other_background,#fff);color:var(--theme-color,#303133);font-size:13px;min-width:0}
+.clouddock-target button,.clouddock-records button,.clouddock-records-entry{font:inherit;min-height:44px;padding:8px 12px;border:1px solid var(--el-border-color-lighter,#ebeef5);border-radius:8px;background:var(--theme-other_background,#fff);color:var(--theme-theme,#409eff);cursor:pointer;box-sizing:border-box}
+.clouddock-target button:disabled,.clouddock-records button:disabled{opacity:.5;cursor:default}
+.clouddock-switch{display:flex;align-items:center;gap:8px;min-height:44px;font-weight:400;white-space:nowrap;cursor:pointer}
+.clouddock-switch input{flex-shrink:0;width:18px;height:18px;margin:0;accent-color:var(--theme-theme,#409eff)}
+.clouddock-target-tools{display:flex;align-items:center;gap:8px;min-width:0}
+.clouddock-target .clouddock-current{display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding:0 0 0 8px;text-align:left;border:0;border-radius:0;background:transparent}
+.clouddock-current strong{font-weight:400;min-width:0;flex:1;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;color:var(--theme-color,#303133)}
+.clouddock-current>span:last-child{white-space:nowrap}
+.clouddock-current[hidden],.clouddock-browser[hidden],.clouddock-error[hidden]{display:none!important}
+.clouddock-browser nav{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}.clouddock-browser nav button{max-width:100%;overflow-wrap:anywhere}
+.clouddock-browser select{width:100%;font:inherit;min-height:44px}.clouddock-folders{max-height:160px;overflow:auto;overscroll-behavior:contain}
+.clouddock-folders button{display:block;text-align:left;width:100%;border:0;border-bottom:1px solid var(--el-border-color-lighter,#ebeef5);border-radius:0;overflow-wrap:anywhere}
+.clouddock-folders p{font-size:13px;color:var(--el-text-color-secondary,#909399);margin:8px 0}.clouddock-use-directory{width:100%;margin-top:8px}
+.clouddock-error{font-size:13px;line-height:1.5;color:var(--el-color-danger,#f56c6c);overflow-wrap:anywhere;margin:6px 0}.clouddock-error button{margin-left:8px}
+.clouddock-folder-host{min-height:0!important}.save-popup .clouddock-folder-host .folder-select__list{min-height:0;flex:1;overflow:auto}
+.save-dialog .folder-select.clouddock-folder-host{display:flex;flex-direction:column;min-height:0;height:54dvh;max-height:54dvh}.save-dialog .clouddock-folder-host>.folder-header{flex:0 0 auto}.save-dialog .clouddock-folder-host>.folder-list{height:auto!important;min-height:80px;flex:1 1 0;overflow:auto}
+.save-dialog.clouddock-save .folder-list{display:block}
+.save-dialog.clouddock-save .folder-list .folder-item{min-height:44px;padding:12px 16px;margin:0;border:0;border-bottom:1px solid var(--el-border-color-lighter,#ebeef5);border-radius:0;box-shadow:none}
+.save-popup .folder-select.clouddock-folder-host{display:flex;flex-direction:column;min-height:0}.save-popup .clouddock-folder-host>.folder-select__nav{flex:0 0 auto}.save-popup .clouddock-folder-host>.folder-select__list{height:auto!important;min-height:0;flex:1 1 0;overflow:auto}
+.clouddock-records-entry{white-space:nowrap;margin:4px 8px;font-size:13px}
+.resource-list__controls:has(.clouddock-records-entry){flex-wrap:wrap;gap:8px}.resource-list__controls:has(.clouddock-records-entry) .resource-list__status{flex:1 1 140px;min-width:0}.resource-list__controls .clouddock-records-entry{margin:0;flex-shrink:0}
+.resource-card .resource-card__action-cell .resource-card__btn{min-height:44px;white-space:nowrap}.resource-list__controls .resource-list__refresh-btn{min-height:44px}
+/* Mobile result lists: no perpetual shimmer or backdrop filtering per poster.
+   Keep natural card heights, full text/actions and the existing single column. */
+.resource-card .resource-card__item .resource-card__image-tag{backdrop-filter:none;-webkit-backdrop-filter:none}
+.resource-card .resource-card__item .resource-card__image-skeleton{animation:none;background:var(--mobile-bg-glass-light)}
+.resource-list .resource-card .resource-card__item{transition:border-color var(--mobile-duration-base) var(--mobile-ease-out);box-shadow:var(--mobile-shadow-xs)}
+/* The cloud destination is the task. Local download stays a secondary option. */
+.save-popup.clouddock-save .save-popup__header{padding:8px 16px 0;background:var(--mobile-bg-glass-strong);border-bottom:1px solid var(--mobile-border-light)}
+.save-popup.clouddock-save .save-popup__headline{padding:0;gap:0}
+.save-popup.clouddock-save .save-popup__headline-main{min-height:32px;padding-right:44px;gap:8px}
+.save-popup.clouddock-save .header__title{font-size:18px}
+.save-popup.clouddock-save .save-popup__headline-sub{flex-wrap:nowrap;gap:8px;min-height:44px}
+.save-popup.clouddock-save .save-popup__steps{width:auto;flex:1;gap:6px;overflow:visible}
+.save-popup.clouddock-save .save-popup__steps .steps__item{padding:0;border:0;background:none;font-size:11px;line-height:20px}
+.save-popup.clouddock-save .save-popup__steps .steps__item.is-done{color:var(--mobile-text-secondary)}
+.save-popup.clouddock-save .steps__divider{width:8px}
+.save-popup.clouddock-save .save-popup__new-folder-btn{min-height:44px;height:auto;padding:0 4px;border:0;background:none;font-size:13px;font-weight:500;gap:4px}
+.save-popup.clouddock-save .van-popup__close-icon.van-icon{box-sizing:border-box;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;display:flex;align-items:center;justify-content:center;top:8px;right:8px;border:0;border-radius:0;background:none;font-size:24px}
+.save-popup.clouddock-save .save-popup__content{padding:0;background:var(--mobile-bg-glass-strong)}
+.save-popup.clouddock-save .save-popup__content-panel{border:0;border-radius:0;box-shadow:none;background:transparent}
+.save-popup.clouddock-save .folder-select__nav{padding:6px 16px;box-shadow:none;background:transparent}
+.save-popup.clouddock-save .folder-select__nav-breadcrumb{min-height:32px;gap:8px}
+.save-popup.clouddock-save .folder-select__home-icon{box-shadow:none;border:0;border-radius:0;background:none}
+.save-popup.clouddock-save .folder-select__path-item{box-shadow:none;border:0;border-radius:0;background:none;padding:4px 0}
+.save-popup.clouddock-save .folder-select__list{padding:0 16px;background:transparent}
+.save-popup.clouddock-save .folder-select{background:var(--mobile-bg-glass-strong)}
+.save-popup.clouddock-save .folder-select__list .van-cell-group{border:0;border-radius:0;box-shadow:none;background:transparent}
+.save-popup.clouddock-save .folder-select__folder-item{min-height:56px;padding:14px 0}
+.save-popup.clouddock-save .folder-select__folder-icon{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:24px;height:24px;padding:0;margin-right:12px;border:0;background:none;border-radius:0;box-shadow:none}
+.save-popup.clouddock-save .folder-select__folder-icon::before{content:"";display:block;width:20px;height:18px;background:currentColor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20'%3E%3Cpath d='M2 2h7l2 3h11v13H2z' fill='none' stroke='black' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
+.save-popup.clouddock-save .clouddock-target{padding:4px 16px;background:var(--mobile-bg-glass-strong);color:var(--mobile-text-secondary)}
+.save-popup.clouddock-save .clouddock-current strong{color:var(--mobile-text-secondary)}
+.save-popup.clouddock-save .save-popup__footer{gap:8px;padding:8px 16px calc(12px + env(safe-area-inset-bottom));box-shadow:none;background:var(--mobile-bg-glass-strong)}
+.save-popup.clouddock-save .save-popup__path-card{min-height:20px;padding:0;border:0;border-radius:0;background:none;gap:8px}
+.save-popup.clouddock-save .path__label{font-size:12px}
+.save-popup.clouddock-save .path__value .value__text{font-size:13px}
+.save-popup.clouddock-save .path__value .value__icon{font-size:16px}
+.save-popup.clouddock-save .save-popup__primary-btn{height:48px;border-radius:10px;font-size:16px;box-shadow:none}
+.clouddock-target button:focus-visible,.clouddock-records button:focus-visible{outline:2px solid var(--theme-theme,#409eff);outline-offset:2px}
+.clouddock-records{box-sizing:border-box;width:calc(100% - 24px);max-width:640px;max-height:85dvh;padding:0;border:1px solid var(--el-border-color-lighter,#ebeef5);border-radius:12px;background:var(--theme-other_background,#fff);color:var(--theme-color,#303133);font:14px/1.6 system-ui,-apple-system,sans-serif}
+.clouddock-records::backdrop{background:#0006}.clouddock-records[open]{display:flex;flex-direction:column}.clouddock-records header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--el-border-color-lighter,#ebeef5);flex-shrink:0}.clouddock-records h2{font-size:18px;margin:0}
+.clouddock-job-list{padding:0 16px 16px;min-height:0;overflow:auto}.clouddock-job-list article{padding:12px 0;border-bottom:1px solid var(--el-border-color-lighter,#ebeef5)}.clouddock-job-heading{display:flex;align-items:flex-start;gap:8px;justify-content:space-between}.clouddock-job-heading strong{flex:1;min-width:0;overflow-wrap:anywhere}.clouddock-job-heading>span{white-space:nowrap}.clouddock-job-list p{font-size:13px;overflow-wrap:anywhere;margin:6px 0}.clouddock-job-list progress{width:100%;height:12px;accent-color:var(--theme-theme,#409eff)}.clouddock-job-list summary{cursor:pointer;min-height:44px;line-height:44px}.clouddock-job-actions{display:flex;gap:8px}.clouddock-empty{text-align:center;padding:24px 0}
+.clouddock-directory-dialog{height:min(76dvh,600px)}.clouddock-directory-dialog .clouddock-browser{display:flex;flex-direction:column;gap:8px;min-height:0;flex:1;padding:12px 16px;overflow:hidden}.clouddock-directory-dialog nav{flex-shrink:0;max-height:22dvh;overflow:auto;margin:0}.clouddock-directory-dialog .clouddock-folders{flex:1;min-height:0;max-height:none;overflow:auto}.clouddock-directory-dialog .clouddock-use-directory{flex-shrink:0;min-height:44px}
+.clouddock-directory-dialog header{gap:8px;flex-wrap:wrap}.clouddock-directory-dialog h2{min-width:0;flex:1}.clouddock-directory-dialog header button{flex-shrink:0}
+.clouddock-create-dialog form{padding:12px 16px 16px;display:grid;gap:12px;min-width:0}.clouddock-create-dialog form>input{box-sizing:border-box;width:100%;min-height:44px;min-width:0;padding:8px 12px;border:1px solid var(--el-border-color,#dcdfe6);border-radius:8px;font:inherit;background:var(--theme-other_background,#fff);color:var(--theme-color,#303133)}.clouddock-create-parent{margin:0;font-size:13px;overflow-wrap:anywhere}.clouddock-create-dialog form>button{background:var(--el-color-primary,#409eff);color:white}
+.clouddock-notice{position:fixed;z-index:30000;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);box-sizing:border-box;max-width:calc(100% - 32px);padding:12px 16px;border-radius:8px;background:#20242deF;color:white;font:14px/1.6 system-ui,sans-serif;overflow-wrap:anywhere;pointer-events:none}
+.clouddock-connection{box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;margin-bottom:16px;border:1px solid var(--el-border-color-lighter,#ebeef5);border-radius:12px;background:var(--theme-other_background,#fff);color:var(--theme-color,#303133);font-size:14px;line-height:1.5}
+.clouddock-connection-main{min-width:0;flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px}
+.clouddock-connection h2{font-size:15px;font-weight:600;margin:0}
+.clouddock-connection [role=status]{font-size:13px}
+.clouddock-connection [role=status]::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:currentColor}
+.clouddock-connection[data-connection=connected] [role=status]{color:var(--el-color-success-dark-2,#3e7d16)}
+.clouddock-connection[data-connection=disconnected] [role=status]{color:var(--el-color-danger-dark-2,#c45656)}
+.clouddock-connection-detail{flex-basis:100%;font-size:12px;color:var(--el-text-color-regular,#606266);margin:0;overflow-wrap:anywhere}
+.clouddock-connection>button{flex-shrink:0;min-height:44px;padding:8px 12px;border:1px solid var(--el-border-color,#dcdfe6);border-radius:8px;background:transparent;color:var(--theme-theme,#409eff);font:inherit;cursor:pointer}
+.clouddock-connection>button:disabled{opacity:.6;cursor:wait}
+.clouddock-connection>button:focus-visible{outline:2px solid var(--theme-theme,#409eff);outline-offset:2px}
+@media(min-width:769px){.clouddock-target{padding:4px 16px}.pc-unified-dialog .folder-select.clouddock-folder-host{max-height:54dvh}.clouddock-notice{bottom:32px}}
+/* Reuse the existing connection card and mobile spacing for Baidu pairing. */
+.clouddock-pair-form { display:flex; flex-wrap:wrap; gap:.57em; margin-top:.86em; }
+.clouddock-pair-form input { flex:1 1 10em; min-width:0; max-width:100%; box-sizing:border-box; min-height:3.15em; border:1px solid var(--el-border-color, #ddd); border-radius:.57em; padding:.57em .86em; color:inherit; background:transparent; font:inherit; }
+.clouddock-pair-form button { min-height:3.15em; padding:.57em .86em; border:1px solid var(--el-border-color, #ddd); border-radius:.57em; color:var(--theme-theme,#006de0); background:transparent; font:inherit; }
+.clouddock-baidu-connection p { overflow-wrap:anywhere; }

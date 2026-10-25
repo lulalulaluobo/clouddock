@@ -1,0 +1,19 @@
+# Optional fnOS-only override; no separate adapter service.
+services:
+  app:
+    environment:
+      BAIDU_NAS_UID: ${BAIDU_NAS_UID:-1000}
+      BAIDU_HOST_DOWNLOAD_PATH: ${NAS_DOWNLOAD_PATH:?Set NAS_DOWNLOAD_PATH}
+    volumes:
+      - type: bind
+        source: /var/apps/baidu.netdisk/var/db
+        target: /run/fnos-baidu/db
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/apps/baidu.netdisk/var/ulinks
+        target: /run/fnos-baidu/ulinks
+        read_only: true
+        bind:
+          create_host_path: false

@@ -1,0 +1,8 @@
+**
+!Dockerfile
+!README.md
+!native/
+!native/**
+!build/
+!build/web/
+!build/web/**
