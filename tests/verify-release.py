@@ -32,6 +32,10 @@ def call(route, body=None, token=None):
 
 password = "Smoke-" + env["ARIA2_RPC_SECRET"][:20] + "Aa1!"
 _, login = call("/api/user/login", {"username": "release_smoke", "password": password})
+if not login.get("success"):
+    _, registration = call("/api/user/register", {"username": "release_smoke", "password": password, "registerCode": env["ADMIN_USER_CODE"]})
+    assert registration.get("success"), "首位管理员注册失败"
+    _, login = call("/api/user/login", {"username": "release_smoke", "password": password})
 assert login.get("success"), "测试账号登录失败"
 token = login["data"]["token"]
 assert call("/api/clouddock/jobs")[0] == 401
@@ -39,6 +43,13 @@ _, health = call("/api/clouddock/health", token=token)
 assert health["data"]["aria2"]["connected"] is True
 assert health["data"]["baseVersion"] == "0.8.3"
 assert call("/api/clouddock/jobs", token=token)[1]["data"] == []
+baidu = call("/api/clouddock/baidu/health", token=token)
+assert baidu[0] == 200 and baidu[1]["data"]["connected"] is False
+assert call("/api/clouddock/baidu/jobs", token=token)[1]["data"] == []
+assert call("/api/clouddock/quark/share", {"shareCode": "../invalid"}, token)[0] == 400
+with urllib.request.urlopen(base + "/transfer", timeout=10) as response:
+    page = response.read().decode()
+    assert "<title>CloudDock</title>" in page and "clouddock/logo.svg" in page
 media = Path(env["NAS_DOWNLOAD_PATH"])
 status, created = call("/api/clouddock/directories", {"target": {"rootId": "media", "relativePath": ""}, "name": "fresh-deploy"}, token)
 assert status in (201, 409)
@@ -67,4 +78,4 @@ else:
     raise AssertionError("重建后服务未恢复")
 assert hashlib.sha256((root / "config/env").read_bytes()).hexdigest() == digest
 assert call("/api/clouddock/jobs", token=token)[1]["data"] == []
-print(json.dumps({"result": "PASS", "platform": "linux/amd64", "freshLogin": True, "aria2": health["data"]["aria2"]["version"], "localMkdir": True, "rpcSecretNotExposed": True, "recreateKeepsJWTAndLogin": True, "noDownloadTasks": True}, ensure_ascii=False))
+print(json.dumps({"result": "PASS", "platform": "linux/amd64", "freshLogin": True, "aria2": health["data"]["aria2"]["version"], "baiduWithoutOfficialApp": "disconnected", "brandAndTransferRoute": True, "localMkdir": True, "rpcSecretNotExposed": True, "recreateKeepsJWTAndLogin": True, "noDownloadTasks": True}, ensure_ascii=False))

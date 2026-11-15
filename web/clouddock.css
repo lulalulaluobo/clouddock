@@ -83,3 +83,19 @@
 .clouddock-pair-form input { flex:1 1 10em; min-width:0; max-width:100%; box-sizing:border-box; min-height:3.15em; border:1px solid var(--el-border-color, #ddd); border-radius:.57em; padding:.57em .86em; color:inherit; background:transparent; font:inherit; }
 .clouddock-pair-form button { min-height:3.15em; padding:.57em .86em; border:1px solid var(--el-border-color, #ddd); border-radius:.57em; color:var(--theme-theme,#006de0); background:transparent; font:inherit; }
 .clouddock-baidu-connection p { overflow-wrap:anywhere; }
+.clouddock-link-page { box-sizing:border-box; padding:16px; width:100%; min-width:0; font-size:14px; color:var(--theme-color,#303133); }
+.clouddock-link-card { box-sizing:border-box; max-width:760px; margin:0 auto 24px; padding:24px; border:1px solid var(--el-border-color-lighter,#ebeef5); border-radius:16px; background:var(--theme-other_background,#fff); }
+.clouddock-link-card header { margin-bottom:24px; }
+.clouddock-link-card h1 { font-size:clamp(24px,4vw,32px); line-height:1.25; margin:8px 0 12px; }
+.clouddock-link-card p { line-height:1.7; margin:8px 0; overflow-wrap:anywhere; }
+.clouddock-link-card .clouddock-link-eyebrow { font-size:12px; font-weight:700; letter-spacing:.1em; color:var(--theme-theme,#1677ff); }
+.clouddock-link-card label { display:block; font-weight:600; margin-bottom:8px; }
+.clouddock-link-card textarea,.clouddock-link-card input { display:block; width:100%; box-sizing:border-box; min-height:44px; padding:12px; border:1px solid var(--el-border-color,#dcdfe6); border-radius:8px; font:inherit; color:inherit; background:var(--theme-background,#f8fafc); }
+.clouddock-link-card textarea { resize:vertical; overflow-wrap:anywhere; }
+.clouddock-link-fields { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; margin:20px 0; }
+.clouddock-link-provider { align-self:end; color:var(--theme-theme,#1677ff); }
+.clouddock-link-submit { width:100%; min-height:44px; padding:12px 20px; border:0; border-radius:8px; font:inherit; font-weight:600; color:#fff; background:var(--theme-theme,#1677ff); cursor:pointer; }
+.clouddock-link-submit:disabled { opacity:.5; cursor:default; }
+.clouddock-link-hint { font-size:12px; color:var(--el-text-color-secondary,#909399); }
+.clouddock-link-results { min-width:0; scroll-margin-top:72px; }
+@media (min-width:768px) { .clouddock-link-page { padding:24px; } .clouddock-link-card { padding:32px; } .clouddock-link-fields { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px; } }

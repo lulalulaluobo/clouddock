@@ -1,0 +1,16 @@
+{
+  "image": "lulalulaluobo/clouddock:1.1.0",
+  "platform": "linux/amd64",
+  "digest": "sha256:fe23e36f3bd7a8747a6d69987f459e86effc7d77185e3070d537cd738012afdf",
+  "composePackage": "clouddock-1.1.0-compose.zip",
+  "packageSha256": "1fd9856dcabd531483c5487dc68903ba3e361f65edd9836b55ce37715614c253",
+  "files": {
+    "README.md": "5f7fc9be46d8c246c7dea2ec9465178170dad04be4de80c7260c507517e0da2b",
+    "compose.yaml": "9c70f6d0b945478de5193b6694fdb6c8eb590b28050eccdcd6bca7582fc4e2fc",
+    "compose.baidu.yaml": "2f8466a6695578c982b22c3327085758e0193285652d6118c98fc8250241a511",
+    ".env.example": "3991c6c1a4ae950284467a8a7deb1a9fa61be90c9436d5d0b6dc0890c7aedf4f",
+    "TESTING.md": "a3509560713150f6dd7d5b71b52cf161dfd22330ec773f92918ea53a4e0889d9",
+    "docs/BAIDU-SETUP.md": "ae30d433fcd911d48cd61bb5423069523cb88b9dd1c9cc3fd1a83ff73fd39665",
+    "RELEASE-1.1.0.md": "f5dfbdb20136983aa1bd59885b05bd1939152d78530c04c00593782df51337f4"
+  }
+}

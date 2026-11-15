@@ -1,3 +1,4 @@
+# NAS 分发文件挂载开发方案；正式镜像部署请使用根目录 compose.yaml。
 name: clouddock-nas
 services:
   app:
@@ -10,6 +11,8 @@ services:
       - "${BIND_IP:-192.168.2.61}:${APP_PORT:-7003}:8008"
     environment:
       NODE_ENV: production
+      BAIDU_NAS_UID: ${BAIDU_NAS_UID:-1000}
+      BAIDU_HOST_DOWNLOAD_PATH: ${NAS_DOWNLOAD_PATH:?Set NAS_DOWNLOAD_PATH}
       ARIA2_RPC_URL: http://aria2:6800/jsonrpc
       ARIA2_RPC_SECRET: ${ARIA2_RPC_SECRET:?Set ARIA2_RPC_SECRET}
       TG_BOT_TOKEN: ""
@@ -20,9 +23,21 @@ services:
       - ./config:/app/config
       - ./logs:/app/logs
       - ${NAS_DOWNLOAD_PATH:?Set NAS_DOWNLOAD_PATH}:/downloads
+      - type: bind
+        source: /var/apps/baidu.netdisk/var/db
+        target: /run/fnos-baidu/db
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/apps/baidu.netdisk/var/ulinks
+        target: /run/fnos-baidu/ulinks
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on: [aria2]
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8008/',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      test: ["CMD", "node", "/app/clouddock/healthcheck.cjs"]
       interval: 20s
       timeout: 5s
       retries: 3

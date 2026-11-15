@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import shutil
+from brand_web import prepare_brand
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "upstream/nas-v0.8.3/html"
@@ -57,6 +58,8 @@ def main():
     resource = (SOURCE / resource_source).read_text()
     driver = '''{name:"百度网盘",type:"baiduPan",regex:/pan\\.baidu\\.com\\/s\\/(1[A-Za-z0-9_-]+)/,api:{getShareInfo:e=>globalThis.CloudDock.baiduApi.getShareInfo(e),getShareList:e=>globalThis.CloudDock.baiduApi.getShareList(e)},parseShareCode:(e,t)=>({shareCode:e.match(t)?.[1],receiveCode:e.match(/(?:pwd=|提取码[：:\\s]*)([A-Za-z0-9]+)/)?.[1]||""}),capabilities:{postSaveRename:false}},'''
     resource = once(resource, 'v=[{name:"115网盘"', 'v=[' + driver + '{name:"115网盘"')
+    resource = once(resource, 'N={async getShareInfo(e){return await g.get("/api/quark/share-info",{params:e})}', 'N={async getShareInfo(e){return e.receiveCode?globalThis.CloudDock.quarkShare(e):await g.get("/api/quark/share-info",{params:e})}')
+    resource = once(resource, 'parseShareCode:(e,t)=>{var r;return{shareCode:(r=e.match(t))==null?void 0:r[1]}}', 'parseShareCode:(e,t)=>{var r;return{shareCode:(r=e.match(t))==null?void 0:r[1],receiveCode:e.match(/(?:pwd=|提取码[：:\\s]*)([A-Za-z0-9]+)/)?.[1]||""}}')
     # Cached results from before this driver existed must also expose Baidu save.
     resource = once(resource, 'getValidSupportSaveLinks(e){if(!w())', 'getValidSupportSaveLinks(e){e={...e,supportSaveLinks:He(e.cloudLinks||[])};if(!w())')
     resource_file = "assets/resource-clouddock-" + digest(resource.encode())[:12] + ".js"
@@ -84,6 +87,7 @@ def main():
     # The bundled plugin otherwise still scans all images during Vue updates,
     # even in observer mode. Its existing event-mode fallback remains intact.
     main_script = once(main_script, 'lazyLoadHandler(){const t=[];', 'lazyLoadHandler(){if(this.mode===wo.observer)return;const t=[];')
+    main_script, brand_map, brand_files = prepare_brand(ROOT, SOURCE, OUTPUT, main_script, once)
     main_file = "assets/main-clouddock-" + digest(main_script.encode())[:12] + ".js"
     (OUTPUT / main_file).write_text(main_script)
     extension = OUTPUT / "clouddock"
@@ -109,23 +113,32 @@ def main():
     aria_html = once(aria_index.read_text(), 'ng-href="#!/new"', 'href="/" target="_top"')
     aria_index.write_text(once(aria_html, "</body>", '<script src="/' + progress_files["ariang-bridge.js"] + '"></script></body>'))
     aria_files = [str(file.relative_to(OUTPUT)) for file in (OUTPUT / "clouddock/ariang").rglob("*") if file.is_file()]
-    import_map = json.dumps({"imports": {"/" + FLOW: "/" + flow_file, "/" + resource_source: "/" + resource_file, "/" + desktop_source: "/" + desktop_file, "/" + mobile_source: "/" + mobile_file, "/" + main_source: "/" + main_file}}, separators=(",", ":"))
-    additions = '<script type="importmap">' + import_map + '</script>\n<link rel="stylesheet" href="/' + css_file + '">\n<script defer src="/' + client_file + '"></script>\n'
+    import_map = json.dumps({"imports": {**brand_map, "/" + FLOW: "/" + flow_file, "/" + resource_source: "/" + resource_file, "/" + desktop_source: "/" + desktop_file, "/" + mobile_source: "/" + mobile_file, "/" + main_source: "/" + main_file}}, separators=(",", ":"))
+    prefill_data = (ROOT / 'web/transfer-bootstrap.js').read_bytes()
+    prefill_file = 'clouddock/transfer-bootstrap-' + digest(prefill_data)[:12] + '.js'
+    (OUTPUT / prefill_file).write_bytes(prefill_data)
+    additions = '<script src="/' + prefill_file + '"></script>\n<script type="importmap">' + import_map + '</script>\n<link rel="stylesheet" href="/' + css_file + '">\n<script defer src="/' + client_file + '"></script>\n'
     index = once((SOURCE / "index.html").read_text(), '<script type="module"', additions + '<script type="module"')
     index = once(index, 'src="/' + main_source + '"', 'src="/' + main_file + '"')
+    index = index.replace('CloudSaver', 'CloudDock')
+    index = re.sub(r'\s*<meta property="og:url"[^>]+>', '', index)
+    index = re.sub(r'(<link rel="(?:icon|apple-touch-icon)" href=")[^"]+', r'\g<1>/clouddock/logo.svg', index)
     (OUTPUT / "index.html").write_text(index)
+    webmanifest = json.loads((SOURCE / 'manifest.webmanifest').read_text())
+    webmanifest.update(name='CloudDock', short_name='CloudDock', description='网盘资源搜索、转存与飞牛下载', lang='zh-CN', icons=[{'src':'/clouddock/logo.svg','sizes':'any','type':'image/svg+xml','purpose':'any'}])
+    (OUTPUT / 'manifest.webmanifest').write_text(json.dumps(webmanifest, ensure_ascii=False))
     worker = (SOURCE / "sw.js").read_text()
-    for file in ("index.html",):
+    for file in ("index.html", "manifest.webmanifest"):
         expression = r'url:"' + re.escape(file) + r'",revision:(?:null|"[^"]*")'
         replacement = 'url:' + json.dumps(file) + ',revision:' + json.dumps(digest((OUTPUT / file).read_bytes()))
         worker, count = re.subn(expression, replacement, worker)
         if count != 1:
             raise RuntimeError("Service Worker 缓存条目不匹配：" + file)
-    new_files = [flow_file, resource_file, desktop_file, mobile_file, main_file, visibility_file, client_file, css_file, progress_file, *progress_files.values(), *aria_files]
+    new_files = [*brand_files, flow_file, resource_file, desktop_file, mobile_file, main_file, visibility_file, client_file, css_file, prefill_file, progress_file, *progress_files.values(), *aria_files]
     additions = [{"url": file, "revision": digest((OUTPUT / file).read_bytes())} for file in new_files]
     worker = once(worker, "precacheAndRoute([", "precacheAndRoute([" + ",".join(json.dumps(row, separators=(",", ":")) for row in additions) + ",")
     (OUTPUT / "sw.js").write_text(worker)
-    changes = ["index.html", "sw.js", *new_files]
+    changes = ["index.html", "sw.js", "manifest.webmanifest", *new_files]
     manifest = {"base": "NAS CloudSaver v0.8.3", "entrypoints": {"flow": flow_file, "client": client_file, "css": css_file, "mobile": mobile_file, "main": main_file, "resource": resource_file, "desktop": desktop_file}, "visibility": visibility_file, "progress": {"page": progress_file, **progress_files}, "modified": changes, "upstreamFlowSha256": digest((SOURCE / FLOW).read_bytes()), "sha256": {file: digest((OUTPUT / file).read_bytes()) for file in changes}}
     (ROOT / "build/manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
     print("已生成 NAS v0.8.3 页面扩展和 AriaNg 下载进度入口；保留原页面和频道模块。")

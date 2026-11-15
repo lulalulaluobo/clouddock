@@ -1,0 +1,7 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CloudDock 链接助手</title></head><body><main>
+  <p class="eyebrow">CLOUDDOCK</p><h1>链接助手</h1><p>点击夸克或百度网盘分享链接，在 CloudDock 中继续转存。</p>
+  <form id="settings"><label for="base">CloudDock 地址</label><input id="base" type="url" placeholder="http://NAS地址:7003" required><p class="hint">请填写浏览器能访问的地址，包含端口。</p>
+    <label class="switch"><input id="enabled" type="checkbox"> 点击网页链接时自动打开 CloudDock</label>
+    <button type="submit">保存设置</button><p id="status" role="status" aria-live="polite"></p>
+  </form><a id="last" hidden target="_blank" rel="noopener noreferrer">打开最近一次的原分享链接</a>
+</main><script type="module" src="./main.ts"></script></body></html>

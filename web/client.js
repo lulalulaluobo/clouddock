@@ -239,6 +239,7 @@
         document.body.append(picker); picker.showModal(); input.focus();
       });
     },
+    async quarkShare(values) { return { code: 0, data: await request('/quark/share', values) }; },
     baiduApi: {
       async getShareInfo(values) { return { code: 0, data: await request("/baidu/share", values) }; },
       async getShareList(values) { return { code: 0, data: await request("/baidu/share", values) }; },

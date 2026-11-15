@@ -1,6 +1,6 @@
 # 飞牛百度网盘授权与使用
 
-适配功能已内置 CloudDock 后端，无需安装额外服务、填写配对码或复制百度 Cookie。Docker Hub 的旧版 `1.0.0` / `latest` 尚未包含本次更新，分发部署应等待包含此功能的新镜像。
+适配功能自 CloudDock **1.1.0** 起内置，无需安装额外服务、填写配对码或复制百度 Cookie。当前版本使用 `lulalulaluobo/clouddock:1.2.0`；旧版 `1.0.0` 不包含此功能。
 
 ## 设置中获取授权
 
@@ -22,10 +22,14 @@ NAS_DOWNLOAD_PATH=/vol3/1000/2T/飞牛影视
 ```
 
 ```bash
+docker compose -f compose.yaml -f compose.baidu.yaml config --quiet
+docker compose -f compose.yaml -f compose.baidu.yaml pull
 docker compose -f compose.yaml -f compose.baidu.yaml up -d
 ```
 
 覆盖配置只增加官方应用数据库目录和目录映射的只读挂载。官方应用必须已安装并登录，缺少挂载源时停止启动，不会创建假的空目录。下载路径必须在飞牛百度允许访问的目录范围内。默认支持根目录 ID `media`；多个根目录需额外配置 `BAIDU_HOST_ROOTS_JSON`，按 CloudDock 根目录 ID 映射宿主机路径。
+
+后续升级、重建或停止服务也使用两份 `-f` 参数，避免基础配置覆盖百度挂载。百度下载由官方客户端完成，不能通过 aria2 获得飞牛专属下载权益。
 
 CloudDock 读取当前绑定账号，每次请求获取最新凭据；凭据不返回前端、不写入镜像。授权配置只保存账号指纹，存于持久化 `config/fnos-baidu-binding.json`。只允许管理员操作，所有管理员共用该飞牛用户的百度账号。无需特权容器、Docker socket 或 SSH 密码。此功能仅适用于同机 fnOS 官方百度应用，版本升级后应重新验证兼容性。
 

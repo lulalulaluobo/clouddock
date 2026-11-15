@@ -48,6 +48,8 @@ class BaiduNative {
       const response = await this.axios.request({ url: 'https://pan.baidu.com' + endpoint, params, method: body === undefined ? 'GET' : 'POST', data: body === undefined ? undefined : new URLSearchParams(body).toString(), headers: body === undefined ? {} : { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 25000, maxRedirects: 0, proxy: false, responseType: 'text', transformResponse: [x => x], maxContentLength: 8 * 1024 * 1024, validateStatus: status => status < 500 });
       result = parseJson(response.data);
     } catch { throw new PublicError('百度请求结果未确认，请查看任务记录，勿重复提交', 502); }
+    // A partial download response can contain accepted tasks; retain them before reporting failures.
+    if (result.errno === 42620 && endpoint === '/rest/2.0/xpan/nas' && query.method === 'download') return result;
     if (result.errno !== 0) {
       if ([110, 111, -6, 6].includes(result.errno)) throw new PublicError('百度登录已失效，请在飞牛官方应用重新登录后获取授权', 503);
       const operation = endpoint.endsWith('/transfer') ? '转存' : endpoint.endsWith('/taskquery') ? '查询转存结果' : endpoint.endsWith('/nas') ? '下载' : '访问网盘';
@@ -121,6 +123,50 @@ class BaiduNative {
       }
     }
   }
+  async downloadPlan(rows, account, prefix = '', files = [], count = { value: 0 }, depth = 0) {
+    for (const row of rows) {
+      if (++count.value > 20000 || depth > 40) throw new PublicError('资源过多，请分批选择');
+      const local = path.posix.join(prefix, filename(row.server_filename));
+      if (row.isdir) await this.downloadPlan(await this.own(cloudPath(row.path), account), account, local, files, count, depth + 1);
+      else { const fid = String(row.fs_id ?? row.fsid); idList([fid]); files.push({ fid, path: local }); }
+    }
+    return files;
+  }
+  async ensureLocalDirectory(target, directory) {
+    let current = { ...target };
+    for (const name of directory.split('/').filter(part => part && part !== '.')) {
+      const location = await this.paths.resolve(current), next = path.join(location.browse, filename(name));
+      try { const info = await fs.lstat(next); if (!info.isDirectory() || info.isSymbolicLink()) throw new PublicError('飞牛目录存在类型冲突'); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; await this.paths.create(current, name); }
+      current.relativePath = path.posix.join(current.relativePath || '', name);
+    }
+    return current;
+  }
+  async submitDownloads(job, rows, location) {
+    if (!job.downloadPlan) { job.downloadPlan = await this.downloadPlan(rows, job.account); await this.persist(job); }
+    if (!job.downloadPlan.length) throw new PublicError('所选文件夹为空，没有可下载文件');
+    job.downloadTasks ||= [];
+    const groups = new Map();
+    for (const file of job.downloadPlan) {
+      if (job.downloadTasks.some(task => String(task.fs_id) === file.fid)) continue;
+      const dir = path.posix.dirname(file.path); if (!groups.has(dir)) groups.set(dir, []); groups.get(dir).push(file);
+    }
+    for (const [directory, files] of groups) {
+      await this.ensureLocalDirectory(job.target, directory);
+      for (let offset = 0; offset < files.length; offset += 100) {
+        const batch = files.slice(offset, offset + 100), ids = batch.map(file => file.fid);
+        job.phase = 'submitting'; job.uncertain = true; job.rid = Date.now(); await this.persist(job);
+        const result = await this.api('/rest/2.0/xpan/nas', { method: 'download', device_id: true, type: 2, rtype: 1, rid: job.rid, iot_version: 'FnOS-BaiduNetdisk-1.0.0', auto_sync: 0, use_local_mtime: 0 }, { fs_ids: idList(ids), save_path: path.posix.join(location.sdk, directory) }, job.account);
+        const tasks = result.list || [];
+        if (tasks.some(x => !ids.includes(String(x.fs_id)) || !/^\d+$/.test(String(x.task_id))) || new Set(tasks.map(x => String(x.fs_id))).size !== tasks.length) throw new PublicError('下载返回标识异常，请在飞牛百度核对，勿重复提交');
+        job.downloadTasks.push(...tasks.map(task => ({ ...task, localPath: batch.find(file => file.fid === String(task.fs_id)).path })));
+        job.uncertain = false;
+        if (tasks.length !== ids.length || result.errno === 42620) job.submissionError = `部分文件未创建下载任务（已接受 ${job.downloadTasks.length}/${job.downloadPlan.length} 个），请在飞牛百度核对`;
+        await this.persist(job);
+        if (job.submissionError) return;
+      }
+    }
+  }
   public(job) { return Object.fromEntries(['id', 'title', 'state', 'phase', 'error', 'target', 'selectedCount', 'files', 'createdAt', 'provider', 'download'].map(key => [key, job[key]])); }
   async persist(job) { await this.Job.update({ state: job.state, data: JSON.stringify(job) }, { where: { id: job.id } }); }
   async create(owner, body) {
@@ -165,16 +211,12 @@ class BaiduNative {
       if (saved.length !== selected.length || new Set(saved.map(x => String(x.from_fs_id))).size !== selected.length || saved.some(x => !p.selectedIds.includes(String(x.from_fs_id)))) throw new PublicError('转存结果与勾选项不一致，已停止下载');
       job.saved = saved;
       if (!job.download) { job.state = 'completed'; job.phase = 'completed'; await this.persist(job); return; }
-      const actual = saved.map(x => ({ ...selected.find(s => String(s.fsid ?? s.fs_id) === String(x.from_fs_id)), path: cloudPath(x.to), server_filename: x.to.split('/').at(-1) }));
+      const actual = saved.map(x => ({ ...selected.find(s => String(s.fsid ?? s.fs_id) === String(x.from_fs_id)), fs_id: x.to_fs_id, fsid: x.to_fs_id, path: cloudPath(x.to), server_filename: x.to.split('/').at(-1) }));
       await this.validateTree(actual, location.browse, job.account, null);
-      if (!job.downloadTasks) {
-        const ids = saved.map(x => String(x.to_fs_id));
-        job.phase = 'submitting'; job.uncertain = true; job.rid = Date.now(); await this.persist(job);
-        const result = await this.api('/rest/2.0/xpan/nas', { method: 'download', device_id: true, type: 2, rtype: 1, rid: job.rid, iot_version: 'FnOS-BaiduNetdisk-1.0.0', auto_sync: 0, use_local_mtime: 0 }, { fs_ids: idList(ids), save_path: location.sdk }, job.account);
-        job.downloadTasks = result.list || []; job.uncertain = false; await this.persist(job);
-        if (job.downloadTasks.length !== ids.length || new Set(job.downloadTasks.map(x => String(x.fs_id))).size !== ids.length || job.downloadTasks.some(x => !ids.includes(String(x.fs_id)))) throw new PublicError('部分下载结果未确认，请在飞牛百度检查，勿重复提交');
-      }
-      job.files = job.downloadTasks.map(x => ({ gid: String(x.task_id), fid: String(x.fs_id), path: x.path.split('/').at(-1), state: 'waiting', completed: 0, total: 0, speed: 0 }));
+      await this.submitDownloads(job, actual, location);
+      job.files = job.downloadTasks.map(x => ({ gid: String(x.task_id), fid: String(x.fs_id), path: x.localPath || x.path.split('/').at(-1), state: 'waiting', completed: 0, total: 0, speed: 0 }));
+      if (job.submissionError) job.error = job.submissionError;
+      if (!job.files.length) throw new PublicError(job.submissionError || '未创建下载任务');
       job.state = 'downloading'; job.phase = 'downloading'; await this.persist(job);
     } catch (error) { job.state = 'failed'; job.error = error instanceof PublicError ? error.message : '处理结果未确认，请在飞牛百度核对本次任务'; await this.persist(job); }
   }
@@ -197,7 +239,7 @@ class BaiduNative {
           Object.assign(file, { state: row.status === 5 ? 'complete' : row.fail_code ? 'error' : row.status === 3 ? 'active' : 'waiting', completed: Number(row.current_size || 0), total: Number(row.size || 0), speed: row.status === 3 ? Number(row.speed || 0) : 0 });
           if (file.state === 'error') file.error = '飞牛百度下载失败（代码 ' + row.fail_code + '）';
         }
-        if (job.files.length && job.files.every(f => f.state === 'complete')) { job.state = 'completed'; job.phase = 'completed'; }
+        if (job.files.length && job.files.every(f => f.state === 'complete')) { job.state = job.submissionError ? 'failed' : 'completed'; job.phase = 'completed'; }
         else if (job.files.some(f => f.state === 'error')) { job.state = 'failed'; job.error = '请在飞牛百度网盘查看或恢复失败下载'; }
         await this.persist(job);
       }

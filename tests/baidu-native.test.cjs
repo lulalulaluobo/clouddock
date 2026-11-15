@@ -3,6 +3,29 @@ const fs = require('node:fs/promises'), os = require('node:os'), path = require(
 const { BaiduNative, parseJson, idList, cloudPath } = require('../native/baidu-native.cjs');
 const { Directories } = require('../native/core.cjs');
 function instance() { return Object.create(BaiduNative.prototype); }
+test('选中文件夹只展开该子树，以文件 ID 下载并保留本地层级', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'bd-folder-')), client = instance(), calls = [];
+  client.paths = new Directories([{ id: 'media', label: 'media', browse: root, aria: root }]); client.persist = async () => {};
+  client.own = async parent => parent === '/saved/movie' ? [{ fs_id: 21, path: '/saved/movie/part', server_filename: 'part', isdir: 1 }] : [{ fs_id: 22, server_filename: 'film.mkv', isdir: 0 }];
+  client.api = async (_endpoint, _query, body) => { calls.push(body); return { errno: 0, list: [{ fs_id: 22, task_id: '21792924462000002', path: '/saved/movie/part/film.mkv' }] }; };
+  const job = { account: 'a', target: { rootId: 'media', relativePath: '' } };
+  try {
+    await client.submitDownloads(job, [{ fs_id: 20, path: '/saved/movie', server_filename: 'movie', isdir: 1 }], { sdk: '/vol3/Films' });
+    assert.equal(calls[0].fs_ids, '[22]'); assert.equal(calls[0].save_path, '/vol3/Films/movie/part');
+    assert.equal(job.downloadTasks[0].localPath, 'movie/part/film.mkv'); assert.ok((await fs.stat(path.join(root, 'movie/part'))).isDirectory());
+    await client.submitDownloads(job, [], { sdk: '/vol3/Films' }); assert.equal(calls.length, 1);
+  } finally { await fs.rm(root, { recursive: true }); }
+});
+test('部分创建失败保留已接受的任务，后续批次停止，不冒充鉴权失败', async () => {
+  const client = instance(); client.persist = async () => {}; client.ensureLocalDirectory = async () => {};
+  client.api = async () => ({ errno: 42620, list: [{ fs_id: 1, task_id: '21792924462000002', path: '/one' }] });
+  const job = { target: {}, downloadPlan: [{ fid: '1', path: 'one' }, { fid: '2', path: 'two' }, { fid: '3', path: 'other/three' }] };
+  await client.submitDownloads(job, [], { sdk: '/media' });
+  assert.equal(job.downloadTasks.length, 1); assert.equal(job.uncertain, false); assert.match(job.submissionError, /已接受 1\/3/);
+  client.credentials = async () => ({ token: 'test', device: 'test' });
+  client.axios = { request: async () => ({ data: '{"errno":42620,"list":[],"succ_count":0}' }) };
+  assert.equal((await BaiduNative.prototype.api.call(client, '/rest/2.0/xpan/nas', { method: 'download' }, {})).errno, 42620);
+});
 test('17 位 SDK 任务 ID 保持精度，路径与 ID 拒绝注入', () => {
   assert.equal(parseJson('{"task_id":21792924462000002,"name":"21792924462000002"}').task_id, '21792924462000002');
   assert.equal(idList(['21792924462000002']), '[21792924462000002]');

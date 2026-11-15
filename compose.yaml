@@ -1,7 +1,7 @@
 name: clouddock
 services:
   app:
-    image: lulalulaluobo/clouddock:${CLOUDDOCK_VERSION:-1.0.0}
+    image: lulalulaluobo/clouddock:${CLOUDDOCK_VERSION:-1.2.0}
     platform: linux/amd64
     restart: unless-stopped
     ports:

@@ -1,9 +1,10 @@
-# Optional fnOS-only override; no separate adapter service.
+# 飞牛百度可选配置：docker compose -f compose.yaml -f compose.baidu.yaml up -d
+# 官方百度网盘应用必须已安装并登录。不要单独启动本文件。
 services:
   app:
     environment:
       BAIDU_NAS_UID: ${BAIDU_NAS_UID:-1000}
-      BAIDU_HOST_DOWNLOAD_PATH: ${NAS_DOWNLOAD_PATH:?Set NAS_DOWNLOAD_PATH}
+      BAIDU_HOST_DOWNLOAD_PATH: ${NAS_DOWNLOAD_PATH:?请设置 NAS_DOWNLOAD_PATH}
     volumes:
       - type: bind
         source: /var/apps/baidu.netdisk/var/db

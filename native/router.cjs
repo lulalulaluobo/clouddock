@@ -8,6 +8,13 @@ function createRouter(express, service, User, baidu) {
   });
   function route(work, status = 200) { return async (req, res) => { try { res.status(status).json({ success: true, code: 0, data: await work(req) }); } catch (error) { const safe = error instanceof PublicError ? error : new PublicError("请求未能完成，请稍后重试", 500); res.status(safe.status).json({ success: false, code: safe.status, message: safe.message }); } }; }
   router.get("/health", route(async () => { let aria; try { aria = await service.rpc.health(); } catch (error) { aria = { connected: false, message: error instanceof PublicError ? error.message : "无法连接 aria2，请检查下载服务是否运行" }; } return { service: "CloudDock", baseVersion: "0.8.3", aria2: aria }; }));
+  router.post('/quark/share', route(async req => {
+    const shareCode = req.body?.shareCode, passcode = req.body?.receiveCode || '';
+    if (typeof shareCode !== 'string' || !/^[A-Za-z0-9]{1,128}$/.test(shareCode) || typeof passcode !== 'string' || !/^[A-Za-z0-9]{0,4}$/.test(passcode)) throw new PublicError('分享链接或提取码无效');
+    const client = await service.clientForUser(req.user.userId), request = { shareCode, passcode };
+    const token = await client.token(request), rows = await client.share(request, token, '0');
+    return { pwdId: shareCode, shareCode, stoken: token, list: rows.map(row => ({ fileId: row.fid, fileIdToken: row.token, fileName: row.name, isFolder: row.directory, fileSize: row.size })) };
+  }));
   if (baidu) {
     router.get('/baidu/health', route(req => baidu.health(req.user.userId)));
     let pairingAt = 0;

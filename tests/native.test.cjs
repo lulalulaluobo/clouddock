@@ -177,3 +177,16 @@ test('百度接口复用当前管理员鉴权，提交先校验飞牛根目录�
     assert.equal((await post({ download: false })).status, 202);
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
+test('带提取码的夸克链接复用当前用户和原生分享客户端，拒绝非法输入', async () => {
+  const express = runtimeRequire('express'), app = express(); const requests = [];
+  app.use(express.json()); app.use((req, _res, next) => { req.user = { userId: 'owner' }; next(); });
+  const service = { clientForUser: async owner => { assert.equal(owner, 'owner'); return { token: async request => { requests.push(request); return 'share-token'; }, share: async (_request, token, parent) => { assert.equal(token, 'share-token'); assert.equal(parent, '0'); return [{ fid: 'one', name: 'movie.mp4', token: 'file-token', directory: false, size: 42 }]; } }; } };
+  app.use(createRouter(express, service, { findOne: async () => ({ role: 1 }) }));
+  const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
+  try {
+    const call = body => fetch('http://127.0.0.1:' + server.address().port + '/quark/share', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    assert.equal((await call({ shareCode: '../bad' })).status, 400);
+    const result = await call({ shareCode: 'abc123', receiveCode: 'aB12' }); assert.equal(result.status, 200);
+    assert.deepEqual(requests, [{ shareCode: 'abc123', passcode: 'aB12' }]); assert.equal((await result.json()).data.list[0].fileId, 'one');
+  } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+});

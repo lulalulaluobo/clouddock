@@ -5,7 +5,7 @@
 ## 1. 手机页面与设置
 
 1. 打开设置，确认版本为 v0.8.3，aria2 显示“已连接 · v1.36.0”。点“重新检测”，检测时间应更新。
-2. 查看“搜索频道”：38 个频道、启用 11 个，原有编辑、排序、启用开关仍在。
+2. 查看“搜索频道”：频道数量应与升级前一致，原有编辑、排序、启用开关仍在。全新部署需自行配置频道。
 3. 在搜索页解析一个资源，点“转存”。目录选择以夸克目录为主体，飞牛只占下方一行，不遮挡目录或保存按钮。
 4. “夸克新建”打开原云盘新建窗口；飞牛行点“更改”，里面的“飞牛新建”只创建本地文件夹。
 
@@ -51,3 +51,30 @@
 - 已将生成页面更新到 NAS 7003，备份在 `releases/web-backup-scroll-20261025`；Docker Hub 的 1.0.0 镜像未包含本次修复。
 
 手机验收：重新打开 7003 页面，搜索影片，连续向上滑动浏览数屏，再切换频道；检查封面提前出现、信息与按钮完整，并测试“转存”打开原选择窗口即可，无需提交下载。
+
+## 1.1.0 镜像发布验证
+
+- 23 项后端测试、16 项网页/解析/可见性测试，以及 README 与 Compose 参数一致性检查通过。
+- 使用正式 `linux/amd64` 镜像，在独立空目录启动基础 Compose，完成首位管理员注册、登录、aria2 连接、本地新建目录、RPC 密钥脱敏检查；强制重建应用后账号和 JWT 配置保留。
+- 通用 NAS 未安装飞牛官方百度应用时，百度状态正确显示未连接，夸克与 aria2 可以独立使用。飞牛百度通过可选 Compose 配置只读挂载官方应用信息，不额外运行适配容器。
+- 新增“链接转存”，分别粘贴带提取码的百度文案和夸克链接，确认自动识别、资源勾选、云盘目录与独立本地目录。百度提交模拟验证提取码、文件 ID 和飞牛目录正确传递；未创建真实下载任务。
+- NAS 从 Docker Hub 拉取 1.1.0，确认 `process.arch=x64`、内置百度模块、AriaNg 和品牌静态文件齐全。发布不替换当前生产容器。
+- 2026-10-26 NAS 生产实例为 125 个搜索频道、22 个启用；历史验证记录中的 38/11 为当时数据。
+
+## 1.2.0 镜像与 Chrome 插件验证
+
+- 插件构建与 TypeScript 检查通过；19 项网页、分享链接及可见性测试和 23 项镜像内后端测试通过。
+- 隔离 Compose 使用空数据目录完成首次注册、登录、aria2 连接、本地目录创建、RPC 密钥脱敏检查及重建后配置持久化；未创建真实转存或下载任务。
+- 模拟链接已验证浏览器插件跳转 NAS 7003、接收链接及提取码；用户测试通过。NAS 原服务使用单独的代码目录，此次发布镜像不自动替换该服务。
+
+自动检查：
+
+```bash
+python3 scripts/prepare-web.py
+python3 tests/compose_test.py
+node --test tests/web.test.cjs tests/share-link.test.cjs tests/extension.test.cjs tests/baidu-native.test.cjs tests/visibility.test.cjs tests/baidu.test.cjs
+# 后端测试需要镜像自带依赖，工作目录必须可写，避免上游日志模块写入只读源码目录。
+docker run --rm --platform linux/amd64 --entrypoint node \
+  -v "$PWD:/workspace:ro" -w /app lulalulaluobo/clouddock:1.2.0 \
+  --test /workspace/tests/native.test.cjs /workspace/tests/baidu-native.test.cjs /workspace/tests/baidu.test.cjs
+```
