@@ -56,16 +56,30 @@ def main():
     (OUTPUT / flow_file).write_text(flow)
     resource_source = "assets/resource-CodzvacV.js"
     resource = (SOURCE / resource_source).read_text()
+    pansou_source = (ROOT / 'web/pansou-search.mjs').read_bytes()
+    pansou_file = 'clouddock/pansou-search-' + digest(pansou_source)[:12] + '.js'
+    (OUTPUT / 'clouddock').mkdir(exist_ok=True)
+    (OUTPUT / pansou_file).write_bytes(pansou_source)
+    resource = 'import {createPanSouSearchAdapter,schedulePanSouRefresh} from "../' + pansou_file + '";\n' + resource
     driver = '''{name:"百度网盘",type:"baiduPan",regex:/pan\\.baidu\\.com\\/s\\/(1[A-Za-z0-9_-]+)/,api:{getShareInfo:e=>globalThis.CloudDock.baiduApi.getShareInfo(e),getShareList:e=>globalThis.CloudDock.baiduApi.getShareList(e)},parseShareCode:(e,t)=>({shareCode:e.match(t)?.[1],receiveCode:e.match(/(?:pwd=|提取码[：:\\s]*)([A-Za-z0-9]+)/)?.[1]||""}),capabilities:{postSaveRename:false}},'''
     resource = once(resource, 'v=[{name:"115网盘"', 'v=[' + driver + '{name:"115网盘"')
     resource = once(resource, 'N={async getShareInfo(e){return await g.get("/api/quark/share-info",{params:e})}', 'N={async getShareInfo(e){return e.receiveCode?globalThis.CloudDock.quarkShare(e):await g.get("/api/quark/share-info",{params:e})}')
     resource = once(resource, 'parseShareCode:(e,t)=>{var r;return{shareCode:(r=e.match(t))==null?void 0:r[1]}}', 'parseShareCode:(e,t)=>{var r;return{shareCode:(r=e.match(t))==null?void 0:r[1],receiveCode:e.match(/(?:pwd=|提取码[：:\\s]*)([A-Za-z0-9]+)/)?.[1]||""}}')
     # Cached results from before this driver existed must also expose Baidu save.
     resource = once(resource, 'getValidSupportSaveLinks(e){if(!w())', 'getValidSupportSaveLinks(e){e={...e,supportSaveLinks:He(e.cloudLinks||[])};if(!w())')
+    original_search = 'Z={async search(e,t,r,s){const n=await g.get("/api/search",{params:{keyword:e,channelId:t,lastMessageId:r},signal:s==null?void 0:s.signal,timeout:s==null?void 0:s.timeoutMs});return Fe(n)},async searchChannels(e,t,r){return g.get("/api/search/channels",{params:{keyword:e,channelId:t},timeout:r==null?void 0:r.timeoutMs})}}'
+    resource = once(resource, original_search, 'Z=createPanSouSearchAdapter(' + original_search[2:] + ',()=>globalThis.CloudDock)')
+    resource = once(resource, 'const l=x(c.data||[]);l.length>0&&We(this,l)', 'const l=x(c.data||[]);l.length>0&&We(this,l);if(a.id==="__clouddock_pansou__")schedulePanSouRefresh(async()=>{try{const result=await F(this,e,a.id,void 0,{timeoutMs:le});if(!k(this,s)||result.code!==0)return;const rows=x(result.data||[]);if(rows.length){We(this,rows);M(this)}}catch{}},()=>k(this,s)&&!document.hidden&&["/","/resource"].includes(location.pathname)&&globalThis.CloudDock?.searchSource()!=="channels")')
+    resource = once(resource, 'k(this,s)&&(M(this),this.resources.length===0&&y.warning("未搜索到相关资源"))', 'k(this,s)&&(M(this),this.resources.length===0&&y.warning(globalThis.CloudDock?.searchSource()==="channels"?"未搜索到相关资源":"暂无结果，PanSou 可能仍在后台搜索"))')
+    resource = once(resource, '_e=async e=>{var c;const t=q[e.drive.type];', '_e=async e=>{var c;if(["quark","baiduPan"].includes(e.drive.type)){const check=await globalThis.CloudDock?.checkPanSou(e);if(check)return{panState:check.state}}const t=q[e.drive.type];')
+    resource = once(resource, 'const h=await _e(a),d=Date.now(),o=Me(h.message);if(!q[a.drive.type])', 'const h=await _e(a),d=Date.now(),o=Me(h.message);if(h.panState){const v=h.panState,status=v==="ok"?"valid":v==="bad"?"invalid":"error",reason=v==="bad"?"not_found":v==="locked"?"password_required":"unknown",message=({ok:"链接有效",bad:"链接失效",locked:"需要提取码或提取码错误",unsupported:"暂不支持检测",uncertain:"暂时无法确认"})[v]||"暂时无法确认",u={status,cloudType:a.drive.type,reason,message,checkedAt:d,expiresAt:C(status,reason,d)};return this.linkValidityMap[c]=u,u}if(!q[a.drive.type])')
+    resource = once(resource, 'if(o==="not_found"||o==="expired"||o==="password_required"||o==="parse_error")', 'if(o==="password_required"){const u={status:"error",cloudType:a.drive.type,reason:o,message:h.message||"需要提取码或提取码错误",checkedAt:d,expiresAt:C("error",o,d)};return this.linkValidityMap[c]=u,u}if(o==="not_found"||o==="expired"||o==="parse_error")')
     resource_file = "assets/resource-clouddock-" + digest(resource.encode())[:12] + ".js"
     (OUTPUT / resource_file).write_text(resource)
     desktop_source = "assets/ResourceList-C7bpI1Nl.js"
     desktop = baidu_folders((SOURCE / desktop_source).read_text())
+    desktop = once(desktop, 'a.allInvalid?"链接疑似失效":"链接状态异常"', 'a.allInvalid?"链接疑似失效":(c.cloudLinks||[]).some(v=>h.getCloudLinkValidityState(v).reason==="password_required")?"需要提取码或提取码错误":"暂时无法确认"')
+    desktop = once(desktop, 'd.allInvalid?"链接失效":"状态异常"', 'd.allInvalid?"链接失效":(o.cloudLinks||[]).some(v=>A.getCloudLinkValidityState(v).reason==="password_required")?"需要提取码或提取码错误":"暂时无法确认"')
     desktop_file = "assets/ResourceList-desktop-clouddock-" + digest(desktop.encode())[:12] + ".js"
     (OUTPUT / desktop_file).write_text(desktop)
     # Preserve originals; map only checked, generated copies of the installed UI.
@@ -79,6 +93,7 @@ def main():
     mobile = 'import {observeResources} from "./' + Path(visibility_file).name + '";\n' + once(mobile, before, after)
     mobile = once(mobile, 'S-(P+k)<=1&&V(r.value)', 'S-(P+k)<=Math.max(600,P)&&V(r.value)')
     mobile = baidu_folders(mobile, mobile=True)
+    mobile = once(mobile, 'h.allInvalid?"链接失效":"状态异常"', 'h.allInvalid?"链接失效":(v.cloudLinks||[]).some(item=>s.getCloudLinkValidityState(item).reason==="password_required")?"需要提取码或提取码错误":"暂时无法确认"')
     mobile_file = "assets/ResourceList-clouddock-" + digest(mobile.encode())[:12] + ".js"
     (OUTPUT / mobile_file).write_text(mobile)
     main_source = "assets/main-qTjhG9aT.js"
@@ -134,7 +149,7 @@ def main():
         worker, count = re.subn(expression, replacement, worker)
         if count != 1:
             raise RuntimeError("Service Worker 缓存条目不匹配：" + file)
-    new_files = [*brand_files, flow_file, resource_file, desktop_file, mobile_file, main_file, visibility_file, client_file, css_file, prefill_file, progress_file, *progress_files.values(), *aria_files]
+    new_files = [*brand_files, pansou_file, flow_file, resource_file, desktop_file, mobile_file, main_file, visibility_file, client_file, css_file, prefill_file, progress_file, *progress_files.values(), *aria_files]
     additions = [{"url": file, "revision": digest((OUTPUT / file).read_bytes())} for file in new_files]
     worker = once(worker, "precacheAndRoute([", "precacheAndRoute([" + ",".join(json.dumps(row, separators=(",", ":")) for row in additions) + ",")
     (OUTPUT / "sw.js").write_text(worker)

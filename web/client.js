@@ -15,6 +15,75 @@
     } catch (error) { if (error.name === "AbortError") throw new Error("请求结果未确认，请查看下载记录后再重试"); throw error; }
     finally { clearTimeout(timeout); }
   }
+  async function pansouRequest(endpoint, body, signal) {
+    const control = new AbortController(), timeout = setTimeout(() => control.abort(), 35000);
+    const cancel = () => control.abort();
+    if (signal?.aborted) control.abort(); else signal?.addEventListener('abort', cancel, { once: true });
+    try {
+      const response = await fetch('/api/clouddock-pansou' + endpoint, { method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (localStorage.getItem('token') || '') }, body: body === undefined ? undefined : JSON.stringify(body), signal: control.signal });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || 'PanSou 请求失败');
+      return result.data;
+    } finally { clearTimeout(timeout); signal?.removeEventListener('abort', cancel); }
+  }
+  const checks = []; let checkTimer;
+  async function flushChecks() {
+    checkTimer = undefined;
+    const batch = checks.splice(0, 20);
+    if (!batch.length) return;
+    try {
+      const result = await pansouRequest('/check', { items: batch.map(row => row.item) });
+      batch.forEach((row, index) => row.resolve(result[index] || { state: 'uncertain' }));
+    } catch (error) {
+      const disabled = error.message === '请在设置中启用并配置 PanSou';
+      batch.forEach(row => row.resolve(disabled ? null : { state: 'uncertain' }));
+    }
+    if (checks.length && !checkTimer) checkTimer = setTimeout(flushChecks, 80);
+  }
+  function checkPanSou(parsed) {
+    const type = parsed.drive.type;
+    if (!['quark', 'baiduPan'].includes(type)) return Promise.resolve(null);
+    const host = type === 'quark' ? 'pan.quark.cn' : 'pan.baidu.com';
+    return new Promise(resolve => {
+      checks.push({ item: { type, url: 'https://' + host + '/s/' + parsed.shareCode, password: parsed.receiveCode || '' }, resolve });
+      if (!checkTimer) checkTimer = setTimeout(flushChecks, 80);
+    });
+  }
+  function searchSource() { const mode = localStorage.getItem('clouddock_search_source'); return ['channels', 'all', 'pansou'].includes(mode) ? mode : 'channels'; }
+  function attachSearchSource() {
+    const dock = document.querySelector('.pc-search') || document.querySelector('.home__search-dock');
+    if (!dock || dock.querySelector('.clouddock-search-source')) return;
+    const select = element('select', { class: 'clouddock-search-source', 'aria-label': '选择搜索源', title: '选择搜索源' });
+    for (const [value, label] of [['channels','原有频道'],['all','全部来源'],['pansou','PanSou']]) select.append(element('option', { value, text: label }));
+    select.value = searchSource();
+    select.addEventListener('change', () => localStorage.setItem('clouddock_search_source', select.value));
+    dock.insertBefore(select, dock.lastElementChild);
+  }
+  function attachPanSouSettings(settings, after) {
+    if (settings.querySelector('.clouddock-pansou-settings')) return;
+    const host = element('section', { class: 'clouddock-connection clouddock-pansou-settings', 'aria-label': 'PanSou 搜索源' });
+    const body = element('div', { class: 'clouddock-connection-main' });
+    const title = element('h2', { text: 'PanSou 搜索源' }), status = element('span', { role: 'status', 'aria-live': 'polite', text: '正在读取…' });
+    const detail = element('p', { class: 'clouddock-connection-detail', text: '在搜索栏选择搜索源；链接有效性监测沿用下方原有开关。' });
+    const form = element('form', { class: 'clouddock-pansou-form' });
+    const enabled = element('input', { type: 'checkbox', 'aria-label': '启用 PanSou' });
+    const enabledLabel = element('label', { class: 'clouddock-switch' }, [enabled, document.createTextNode('启用 PanSou')]);
+    const url = element('input', { type: 'url', 'aria-label': 'PanSou 服务地址', placeholder: 'http://pansou:8888', autocomplete: 'off' });
+    const token = element('input', { type: 'password', 'aria-label': 'PanSou 访问令牌', placeholder: '访问令牌（可选，留空保持原值）', autocomplete: 'new-password' });
+    const clear = element('input', { type: 'checkbox', 'aria-label': '清除 PanSou 令牌' });
+    const clearLabel = element('label', { class: 'clouddock-switch' }, [clear, document.createTextNode('清除已保存的令牌')]);
+    const save = element('button', { type: 'submit', text: '保存 PanSou 设置' });
+    const test = button('检测连接', async () => { test.disabled = true; try { const value = await pansouRequest('/health'); status.textContent = value.message; host.dataset.connection = value.connected ? 'connected' : 'disconnected'; } catch (error) { status.textContent = error.message; } finally { test.disabled = false; } });
+    form.append(enabledLabel, url, token, clearLabel, save, test);
+    form.addEventListener('submit', async event => {
+      event.preventDefault(); save.disabled = true;
+      try { const result = await pansouRequest('/config', { enabled: enabled.checked, url: url.value, token: token.value, clearToken: clear.checked }); url.value = result.url; token.value = ''; clear.checked = false; status.textContent = result.enabled ? '设置已保存' : '已关闭'; }
+      catch (error) { status.textContent = error.message; }
+      finally { save.disabled = false; }
+    });
+    body.append(title, status, detail, form); host.append(body); after.after(host);
+    pansouRequest('/config').then(value => { enabled.checked = value.enabled; url.value = value.url; status.textContent = value.enabled ? '已启用' : '未启用'; if (value.hasToken) token.placeholder = '已保存令牌，留空保持原值'; }).catch(error => { status.textContent = error.message; form.hidden = true; });
+  }
   function element(tag, options = {}, children = []) {
     const node = document.createElement(tag);
     for (const [key, value] of Object.entries(options)) { if (key === "text") node.textContent = value; else if (key === "class") node.className = value; else node.setAttribute(key, value); }
@@ -163,12 +232,13 @@
     form.append(connect);
     form.addEventListener("submit", async event => { event.preventDefault(); if (connect.disabled) return; connect.disabled = true; try { await request("/baidu/authorize", {}); await check(); } catch (error) { detail.textContent = error.message; } finally { connect.disabled = false; } });
     baidu.append(element("div", { class: "clouddock-connection-main" }, [element("h2", { text: "飞牛百度网盘" }), status, detail, element("p", { text: "先在飞牛官方百度网盘登录，再点击获取授权。无需填写 Cookie 或配对码。" }), form]), button("重新检测", check));
-    host.after(baidu); void check();
+    host.after(baidu); attachPanSouSettings(settings, baidu); void check();
     void checkAria(); clearInterval(healthTimer);
     healthTimer = setInterval(() => { if (!document.hidden) void checkAria(); }, 30000);
   }
   function attach() {
     attachConnection();
+    attachSearchSource();
     if (["quark", "baiduPan"].includes(state.cloudType)) {
       for (const node of document.querySelectorAll(".save-dialog button,.save-popup button")) {
         if (node.textContent.trim() !== "新建文件夹") continue;
@@ -227,6 +297,9 @@
   }
   window.CloudDock = {
     version: "0.1.0-nas.4",
+    searchSource,
+    async searchPanSou(keyword, signal) { try { return await pansouRequest('/search', { keyword }, signal); } catch (error) { if (error.name !== 'AbortError') notify(error.message); throw error; } },
+    checkPanSou,
     showRecords,
     askBaiduFolderName() {
       return new Promise(resolve => {

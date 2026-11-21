@@ -6,6 +6,8 @@
 
 镜像：[`lulalulaluobo/clouddock:1.2.0`](https://hub.docker.com/r/lulalulaluobo/clouddock)。架构：**linux/amd64（x86-64 NAS）**，目前未发布原生 ARM64 镜像。生产建议固定具体版本；`latest` 跟随最新发布。
 
+**源码新功能：PanSou 影视搜索与链接检测**。需要自行构建当前源码并启动独立 PanSou 服务；Docker Hub 的 1.2.0 镜像尚不包含此功能，详见 [PanSou 接入说明](docs/PANSOU.md)。
+
 ## 两个容器，一份 Compose
 
 | 服务 | 内容 | 端口 |
@@ -203,6 +205,14 @@ docker compose -f compose.yaml -f compose.baidu.yaml up -d
 TELE_CHANNELS='[{"id":"实际频道用户名","name":"频道名称"}]'
 ```
 
+## PanSou 影视搜索和链接检测
+
+当前源码可接入独立部署的 PanSou，在搜索栏选择“原有频道”“全部来源”或“PanSou”，搜索到的资源继续使用原有的选择和转存窗口。默认启用 `meitizy`、`jutoushe`、`duoduo` 影视搜索源；PanSou 结果只显示夸克和百度网盘链接，并过滤标题中明确标记为小说或电子书的结果。站点可能变化，结果也可能包含标题未明确标注的非影视资源。
+
+“设置 → 开启资源链接有效性监测”控制显示中的链接自动检测，可关闭。结果区分有效、失效、需要提取码和暂时无法确认；检测状态仅供参考。PanSou 来源可能在首批结果返回后继续补充。
+
+此功能目前需要从源码构建 CloudDock，并使用独立的 PanSou 容器；**Docker Hub 的 1.2.0 镜像不支持**。构建、Compose 启动、管理员配置和测试方法见 [PanSou 接入说明](docs/PANSOU.md)。
+
 ## 持久化、升级和备份
 
 | 宿主机目录 | 用途 |
@@ -260,8 +270,8 @@ docker compose -f compose.yaml -f compose.baidu.yaml up -d --no-deps app
 
 ```bash
 python3 scripts/prepare-web.py
-node --test tests/web.test.cjs tests/share-link.test.cjs tests/extension.test.cjs tests/baidu-native.test.cjs tests/visibility.test.cjs
-docker build --platform linux/amd64 --build-arg CLOUDDOCK_VERSION=1.2.0 -t lulalulaluobo/clouddock:1.2.0 .
+node --test tests/pansou.test.cjs tests/web.test.cjs tests/share-link.test.cjs tests/extension.test.cjs tests/baidu-native.test.cjs tests/visibility.test.cjs
+docker build --platform linux/amd64 --build-arg CLOUDDOCK_VERSION=1.2.0-pansou-dev -t clouddock:pansou-dev .
 ```
 
 `upstream/nas-v0.8.3` 是 NAS 镜像的混淆后端和编译前端，不包含原始 TypeScript/Vue 源码。本项目通过经过版本校验的接入点扩展，不使用早期 v0.2.5 源码重建页面。Docker 构建复用固定 digest 的 NAS v0.8.3 基础镜像，不额外安装应用依赖；构建上下文不含用户配置、数据和凭据。

@@ -37,4 +37,13 @@ with tempfile.TemporaryDirectory(prefix='clouddock-compose-') as directory:
         assert mounts[target]['read_only'] and not mounts[target]['bind'].get('create_host_path',False)
     assert mounts['/downloads']['source'] == '/vol3/1000/2T/飞牛影视'
     assert set(mounts) == {'/app/data','/app/config','/app/logs','/downloads','/run/fnos-baidu/db','/run/fnos-baidu/ulinks'}
+    with_pansou = config(['-f',str(root/'compose.pansou.yaml')])['services']
+    assert set(with_pansou) == {'app','aria2','pansou'}
+    assert with_pansou['app']['environment']['PANSOU_URL'] == 'http://pansou:8888'
+    assert 'ports' not in with_pansou['pansou']
+    assert '@sha256:' in with_pansou['pansou']['image']
+    combined = config(['-f',str(root/'compose.baidu.yaml'),'-f',str(root/'compose.pansou.yaml')])['services']
+    assert set(combined) == {'app','aria2','pansou'}
+    assert combined['app']['environment']['PANSOU_URL'] == 'http://pansou:8888'
+    assert combined['app']['environment']['BAIDU_NAS_UID'] == '1000'
 print('PASS: README matches Compose; generic/fnOS configuration, version, platform and mounts validated')
