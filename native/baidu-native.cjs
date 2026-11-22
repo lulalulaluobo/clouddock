@@ -3,6 +3,7 @@ const fs = require('node:fs/promises'), path = require('node:path');
 const { createHash, randomUUID } = require('node:crypto');
 const { PublicError, filename, relative } = require('./core.cjs');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const RETENTION_MS = 30 * 24 * 60 * 60 * 1000, PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 function cloudPath(value) {
   if (typeof value !== 'string' || !value.startsWith('/') || value.length > 2048 || /[\\\x00-\x1f]/.test(value) || value.split('/').some(p => ['.', '..'].includes(p))) throw new PublicError('网盘目录无效，请重新选择');
   return '/' + value.split('/').filter(Boolean).join('/');
@@ -13,11 +14,11 @@ function parseJson(text) {
 }
 function idList(ids) { if (!ids.length || ids.some(id => !/^\d{1,20}$/.test(String(id)))) throw new PublicError('文件或任务标识无效'); return '[' + ids.join(',') + ']'; }
 class BaiduNative {
-  constructor({ sqlite3, axios, sequelize, DataTypes, Op, paths, database = process.env.BAIDU_DATABASE || '/run/fnos-baidu/db/main.db', binding = '/app/config/fnos-baidu-binding.json', uid = process.env.BAIDU_NAS_UID || '1000', links = '/run/fnos-baidu/ulinks', hostRoots }) {
-    Object.assign(this, { sqlite3, axios, Op, paths, database, binding, uid, links });
+  constructor({ sqlite3, axios, sequelize, DataTypes, Op, paths, database = process.env.BAIDU_DATABASE || '/run/fnos-baidu/db/main.db', binding = '/app/config/fnos-baidu-binding.json', uid = process.env.BAIDU_NAS_UID || '1000', links = '/run/fnos-baidu/ulinks', hostRoots, retentionMs = RETENTION_MS, pruneIntervalMs = PRUNE_INTERVAL_MS }) {
+    Object.assign(this, { sqlite3, axios, Op, paths, database, binding, uid, links, retentionMs, pruneIntervalMs });
     this.hostRoots = hostRoots || (process.env.BAIDU_HOST_ROOTS_JSON ? JSON.parse(process.env.BAIDU_HOST_ROOTS_JSON) : { media: process.env.BAIDU_HOST_DOWNLOAD_PATH });
     this.Job = sequelize.models.CloudDockBaiduJob || sequelize.define('CloudDockBaiduJob', { id: { type: DataTypes.STRING, primaryKey: true }, owner: DataTypes.STRING, intent: DataTypes.STRING, state: DataTypes.STRING, data: DataTypes.TEXT }, { tableName: 'clouddock_baidu_jobs', indexes: [{ unique: true, fields: ['owner', 'intent'] }] });
-    this.busy = false; this.refreshing = false;
+    this.busy = false; this.refreshing = false; this.pruning = false; this.lastPrunedAt = 0;
   }
   async credentials() {
     let row;
@@ -257,7 +258,14 @@ class BaiduNative {
     if (action === '/mkdir') { const destination = cloudPath(body.parentId || '/').replace(/\/$/, '') + '/' + filename(String(body.name || '').trim()); const result = await this.api('/rest/2.0/xpan/file', { method: 'create' }, { path: destination, isdir: 1, rtype: 0 }, account); return { fid: result.path || destination }; }
     throw new PublicError('接口不存在', 404);
   }
-  async initialize() { await this.Job.sync(); const rows = await this.Job.findAll({ where: { state: 'running' } }); for (const row of rows) { const job = JSON.parse(row.data); job.state = 'queued'; await this.persist(job); } this.timer = setInterval(() => { void this.pump(); void this.refresh(); }, 5000); this.timer.unref(); void this.pump(); }
-  async stop() { clearInterval(this.timer); while (this.busy || this.refreshing) await delay(20); }
+  async prune(now = Date.now()) {
+    if (this.pruning) return 0;
+    this.pruning = true;
+    try { return await this.Job.destroy({ where: { state: { [this.Op.in]: ['completed', 'failed'] }, updatedAt: { [this.Op.lt]: new Date(now - this.retentionMs) } } }); }
+    catch { return 0; }
+    finally { this.lastPrunedAt = now; this.pruning = false; }
+  }
+  async initialize() { await this.Job.sync(); const rows = await this.Job.findAll({ where: { state: 'running' } }); for (const row of rows) { const job = JSON.parse(row.data); job.state = 'queued'; await this.persist(job); } await this.prune(); this.timer = setInterval(() => { void this.pump(); void this.refresh(); if (Date.now() - this.lastPrunedAt >= this.pruneIntervalMs) void this.prune(); }, 5000); this.timer.unref(); void this.pump(); }
+  async stop() { clearInterval(this.timer); while (this.busy || this.refreshing || this.pruning) await delay(20); }
 }
 module.exports = { BaiduNative, parseJson, idList, cloudPath };

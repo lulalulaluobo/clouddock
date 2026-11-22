@@ -2,11 +2,11 @@
 
 搜索资源或粘贴分享链接，转存夸克 / 百度网盘，再下载到 NAS。夸克使用 aria2，百度使用飞牛官方百度网盘应用；内置 AriaNg 下载进度，支持网盘目录和 NAS 本地目录独立选择。保留资源搜索、搜索频道和频道管理，不依赖 QAS，不创建定时追更任务。
 
-**1.2.0 新增 Chrome 链接助手**：点击网页中的夸克或百度分享链接，自动打开 CloudDock 的“链接转存”并填入链接；能明确识别到提取码时一并填入。支持右键发送链接或选中的分享文案。资源解析、勾选和转存由用户在原有窗口完成。
+**1.3.0 新增 PanSou 影视搜索与链接检测**：可选启动独立 PanSou 容器，在搜索栏选择“原有频道”“全部来源”或“PanSou”，并支持链接有效性自动检测；同时为 `aria2` 和 `pansou` 补充容器健康检查、限制 Docker 容器日志体积，并自动清理 30 天前已完成或失败的转存记录。
 
-镜像：[`lulalulaluobo/clouddock:1.2.0`](https://hub.docker.com/r/lulalulaluobo/clouddock)。架构：**linux/amd64（x86-64 NAS）**，目前未发布原生 ARM64 镜像。生产建议固定具体版本；`latest` 跟随最新发布。
+**Chrome 链接助手**（1.2.0 起支持）：点击网页中的夸克或百度分享链接，自动打开 CloudDock 的“链接转存”并填入链接；能明确识别到提取码时一并填入。支持右键发送链接或选中的分享文案。资源解析、勾选和转存由用户在原有窗口完成。
 
-**源码新功能：PanSou 影视搜索与链接检测**。需要自行构建当前源码并启动独立 PanSou 服务；Docker Hub 的 1.2.0 镜像尚不包含此功能，详见 [PanSou 接入说明](docs/PANSOU.md)。
+镜像：[`lulalulaluobo/clouddock:1.3.0`](https://hub.docker.com/r/lulalulaluobo/clouddock)。架构：**linux/amd64（x86-64 NAS）**，目前未发布原生 ARM64 镜像。生产建议固定具体版本；`latest` 跟随最新发布。
 
 ## 两个容器，一份 Compose
 
@@ -37,9 +37,14 @@ mkdir -p data config logs aria2-config
 name: clouddock
 services:
   app:
-    image: lulalulaluobo/clouddock:${CLOUDDOCK_VERSION:-1.2.0}
+    image: lulalulaluobo/clouddock:${CLOUDDOCK_VERSION:-1.3.0}
     platform: linux/amd64
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "${BIND_IP:-0.0.0.0}:${APP_PORT:-7003}:8008"
     environment:
@@ -59,11 +64,16 @@ services:
       - ${NAS_DOWNLOAD_PATH:?请设置 NAS_DOWNLOAD_PATH}:/downloads
     depends_on:
       aria2:
-        condition: service_started
+        condition: service_healthy
   aria2:
     image: p3terx/aria2-pro@sha256:086d1a37c586edb07ec0fb956bf9edd89d1d38d138ad5309ff96d510c8c9a011
     platform: linux/amd64
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       TZ: ${TZ:-Asia/Shanghai}
       PUID: ${PUID:-1000}
@@ -76,6 +86,12 @@ services:
     volumes:
       - ./aria2-config:/config
       - ${NAS_DOWNLOAD_PATH:?请设置 NAS_DOWNLOAD_PATH}:/downloads
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "5", "-o", "/dev/null", "-H", "Content-Type: application/json", "-d", '{"jsonrpc":"2.0","id":"hc","method":"system.listMethods"}', "http://127.0.0.1:6800/jsonrpc"]
+      interval: 15s
+      timeout: 8s
+      retries: 3
+      start_period: 20s
 ```
 
 ### 2. .env
@@ -83,7 +99,7 @@ services:
 复制以下内容，至少修改 **NAS_DOWNLOAD_PATH、PUID、PGID、ADMIN_USER_CODE、ARIA2_RPC_SECRET**：
 
 ```dotenv
-CLOUDDOCK_VERSION=1.2.0
+CLOUDDOCK_VERSION=1.3.0
 BIND_IP=0.0.0.0
 APP_PORT=7003
 TZ=Asia/Shanghai
@@ -136,7 +152,7 @@ docker compose logs --tail=100 app
 
 | 参数 | 是否必填 | 填写方式 |
 | --- | --- | --- |
-| `CLOUDDOCK_VERSION` | 否 | 默认 `1.2.0`；生产固定版本，升级时修改。 |
+| `CLOUDDOCK_VERSION` | 否 | 默认 `1.3.0`；生产固定版本，升级时修改。 |
 | `APP_PORT` | 否 | NAS 上的访问端口，默认 `7003`。 |
 | `BIND_IP` | 否 | 默认 `0.0.0.0`，也可绑定 NAS 的指定内网 IP。 |
 | `NAS_DOWNLOAD_PATH` | 是 | NAS 实际下载目录的绝对路径；两个服务共用，必须可写。 |
@@ -207,20 +223,54 @@ TELE_CHANNELS='[{"id":"实际频道用户名","name":"频道名称"}]'
 
 ## PanSou 影视搜索和链接检测
 
-当前源码可接入独立部署的 PanSou，在搜索栏选择“原有频道”“全部来源”或“PanSou”，搜索到的资源继续使用原有的选择和转存窗口。默认启用 `meitizy`、`jutoushe`、`duoduo` 影视搜索源；PanSou 结果只显示夸克和百度网盘链接，并过滤标题中明确标记为小说或电子书的结果。站点可能变化，结果也可能包含标题未明确标注的非影视资源。
+CloudDock 1.3.0 起内置 PanSou 接入支持，可在搜索栏选择“原有频道”“全部来源”或“PanSou”，搜索到的资源继续使用原有的选择和转存窗口。默认启用 `meitizy`、`jutoushe`、`duoduo` 影视搜索源；PanSou 结果只显示夸克和百度网盘链接，并过滤标题中明确标记为小说或电子书的结果。站点可能变化，结果也可能包含标题未明确标注的非影视资源。
 
-“设置 → 开启资源链接有效性监测”控制显示中的链接自动检测，可关闭。结果区分有效、失效、需要提取码和暂时无法确认；检测状态仅供参考。PanSou 来源可能在首批结果返回后继续补充。
+将下面内容保存为 `compose.pansou.yaml`，与基础 `compose.yaml` 放在同一目录（PanSou 仅在容器内网监听）：
 
-此功能目前需要从源码构建 CloudDock，并使用独立的 PanSou 容器；**Docker Hub 的 1.2.0 镜像不支持**。构建、Compose 启动、管理员配置和测试方法见 [PanSou 接入说明](docs/PANSOU.md)。
+```yaml
+services:
+  app:
+    environment:
+      PANSOU_URL: ${PANSOU_URL:-http://pansou:8888}
+      PANSOU_TOKEN: ${PANSOU_TOKEN:-}
+  pansou:
+    image: ghcr.io/fish2018/pansou@sha256:d371fe5caa87794414dd54cda063fcfc456d5013e18b65dbf1f6ca17f6299492
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      PORT: "8888"
+      ENABLED_PLUGINS: ${PANSOU_PLUGINS:-meitizy,jutoushe,duoduo}
+      TZ: ${TZ:-Asia/Shanghai}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- -T 5 http://127.0.0.1:8888/api/health | grep -q '\"status\":\"ok\"'"]
+      interval: 20s
+      timeout: 8s
+      retries: 3
+      start_period: 15s
+```
+
+使用基础配置加 PanSou 启动（飞牛百度用户一并加上 `-f compose.baidu.yaml`）：
+
+```bash
+docker compose -f compose.yaml -f compose.pansou.yaml --env-file .env config --quiet
+docker compose -f compose.yaml -f compose.pansou.yaml pull
+docker compose -f compose.yaml -f compose.pansou.yaml up -d
+```
+
+“设置 → 开启资源链接有效性监测”控制显示中的链接自动检测，可关闭。结果区分有效、失效、需要提取码和暂时无法确认；检测状态仅供参考。PanSou 来源可能在首批结果返回后继续补充。详细配置见 [PanSou 接入说明](docs/PANSOU.md)。
 
 ## 持久化、升级和备份
 
 | 宿主机目录 | 用途 |
 | --- | --- |
-| `./data` | SQLite 数据库：账号、Cookie、频道和转存作业等。 |
+| `./data` | SQLite 数据库：账号、Cookie、频道和转存作业等（已完成或失败超过 30 天的转存记录会自动清理）。 |
 | `./config` | JWT 签名密钥与应用配置。 |
 | `./aria2-config` | aria2 配置和下载会话。 |
-| `./logs` | 应用日志。 |
+| `./logs` | 应用日志（Docker 容器标准输出日志默认限制单文件 10MB、最多保留 3 份）。 |
 | `NAS_DOWNLOAD_PATH` | 实际下载文件。 |
 
 备份 `.env`、`data`、`config`、`aria2-config`。为保证备份一致，可先 `docker compose stop`，复制这些文件和目录后再 `docker compose start`。
@@ -235,7 +285,7 @@ docker compose ps
 
 这不会重建 aria2 或删除下载文件。回滚时恢复上一个固定版本；未来若有数据库结构升级，需恢复对应备份。不要用 `docker compose down -v` 清理生产数据。
 
-**启用百度的部署，后续检查、升级、重建、备份前停止和启动，都必须继续带 `-f compose.yaml -f compose.baidu.yaml`**，否则会丢失百度所需的挂载和环境参数。例如升级：
+**启用百度或 PanSou 的部署，后续检查、升级、重建、备份前停止和启动，都必须继续带对应的 `-f` 覆盖文件**（例如 `-f compose.yaml -f compose.baidu.yaml` 或同时加上 `-f compose.pansou.yaml`），否则会丢失所需的挂载和环境参数。例如升级：
 
 ```bash
 docker compose -f compose.yaml -f compose.baidu.yaml pull app
@@ -271,7 +321,7 @@ docker compose -f compose.yaml -f compose.baidu.yaml up -d --no-deps app
 ```bash
 python3 scripts/prepare-web.py
 node --test tests/pansou.test.cjs tests/web.test.cjs tests/share-link.test.cjs tests/extension.test.cjs tests/baidu-native.test.cjs tests/visibility.test.cjs
-docker build --platform linux/amd64 --build-arg CLOUDDOCK_VERSION=1.2.0-pansou-dev -t clouddock:pansou-dev .
+docker build --platform linux/amd64 --build-arg CLOUDDOCK_VERSION=1.3.0 -t lulalulaluobo/clouddock:1.3.0 .
 ```
 
 `upstream/nas-v0.8.3` 是 NAS 镜像的混淆后端和编译前端，不包含原始 TypeScript/Vue 源码。本项目通过经过版本校验的接入点扩展，不使用早期 v0.2.5 源码重建页面。Docker 构建复用固定 digest 的 NAS v0.8.3 基础镜像，不额外安装应用依赖；构建上下文不含用户配置、数据和凭据。

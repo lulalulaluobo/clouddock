@@ -67,14 +67,21 @@
 - 隔离 Compose 使用空数据目录完成首次注册、登录、aria2 连接、本地目录创建、RPC 密钥脱敏检查及重建后配置持久化；未创建真实转存或下载任务。
 - 模拟链接已验证浏览器插件跳转 NAS 7003、接收链接及提取码；用户测试通过。NAS 原服务使用单独的代码目录，此次发布镜像不自动替换该服务。
 
+## 1.3.0 镜像发布验证
+
+- 25 项宿主机测试（含 PanSou、网页、分享链接、插件、百度原生与可见性）和 30 项镜像内后端测试（含夸克与百度 30 天终态记录自动清理、PanSou 后端、鉴权与 RPC 脱敏）全部通过；Compose 与 README 三份 YAML 一致性、健康检查与日志轮转检查通过。
+- 隔离空目录基础 Compose 验证首位管理员注册、登录、aria2 健康检查与依赖顺序（`service_healthy`）、日志轮转配置（`json-file` / `10m` / `3`）、本地目录创建、RPC 密钥脱敏，以及重建 `app` 后的 JWT 密钥与登录持久化。
+- 隔离 PanSou 联合 Compose 验证 `app` / `aria2` / `pansou` 三容器健康状态与日志配置、PanSou 内网接口鉴权、插件加载与搜索返回格式；未创建真实转存或下载任务，未触碰 NAS 生产实例。
+
 自动检查：
 
 ```bash
 python3 scripts/prepare-web.py
 python3 tests/compose_test.py
-node --test tests/web.test.cjs tests/share-link.test.cjs tests/extension.test.cjs tests/baidu-native.test.cjs tests/visibility.test.cjs tests/baidu.test.cjs
+node --test tests/pansou.test.cjs tests/web.test.cjs tests/share-link.test.cjs tests/extension.test.cjs tests/baidu-native.test.cjs tests/visibility.test.cjs tests/baidu.test.cjs
 # 后端测试需要镜像自带依赖，工作目录必须可写，避免上游日志模块写入只读源码目录。
 docker run --rm --platform linux/amd64 --entrypoint node \
-  -v "$PWD:/workspace:ro" -w /app lulalulaluobo/clouddock:1.2.0 \
-  --test /workspace/tests/native.test.cjs /workspace/tests/baidu-native.test.cjs /workspace/tests/baidu.test.cjs
+  -v "$PWD:/workspace:ro" -w /app lulalulaluobo/clouddock:1.3.0 \
+  --test /workspace/tests/native.test.cjs /workspace/tests/baidu-native.test.cjs /workspace/tests/baidu.test.cjs /workspace/tests/pansou.test.cjs
+python3 tests/pansou-compose-smoke.py
 ```

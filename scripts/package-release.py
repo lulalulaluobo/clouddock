@@ -7,15 +7,16 @@ import re
 import zipfile
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--version', default='1.2.0')
+parser.add_argument('--version', default='1.3.0')
 parser.add_argument('--digest', required=True)
 args = parser.parse_args()
 assert re.fullmatch(r'\d+\.\d+\.\d+', args.version)
 assert re.fullmatch(r'sha256:[a-f0-9]{64}', args.digest)
 root = Path(__file__).resolve().parents[1]
 files = {'README.md':root/'README.md', 'compose.yaml':root/'compose.yaml',
-         'compose.baidu.yaml':root/'compose.baidu.yaml', '.env.example':root/'.env.example',
-         'TESTING.md':root/'TESTING.md', 'docs/BAIDU-SETUP.md':root/'docs/BAIDU-SETUP.md',
+         'compose.baidu.yaml':root/'compose.baidu.yaml', 'compose.pansou.yaml':root/'compose.pansou.yaml',
+         '.env.example':root/'.env.example', 'TESTING.md':root/'TESTING.md',
+         'docs/BAIDU-SETUP.md':root/'docs/BAIDU-SETUP.md', 'docs/PANSOU.md':root/'docs/PANSOU.md',
          'RELEASE-'+args.version+'.md':root/'release'/('RELEASE-'+args.version+'.md')}
 assert 'CLOUDDOCK_VERSION='+args.version in files['.env.example'].read_text()
 archive = root/'release'/('clouddock-'+args.version+'-compose.zip')

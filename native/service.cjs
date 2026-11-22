@@ -1,7 +1,8 @@
 const { randomUUID, randomBytes } = require("node:crypto");
 const { PublicError, parseRequest, Directories, Aria, plan, USER_AGENT } = require("./core.cjs");
+const RETENTION_MS = 30 * 24 * 60 * 60 * 1000, PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-function createService({ sequelize, DataTypes, Op, axios, clientForUser, directories, aria }) {
+function createService({ sequelize, DataTypes, Op, axios, clientForUser, directories, aria, retentionMs = RETENTION_MS, pruneIntervalMs = PRUNE_INTERVAL_MS }) {
   const Job = sequelize.models.CloudDockJob || sequelize.define("CloudDockJob", {
     id: { type: DataTypes.STRING(36), primaryKey: true }, userId: { type: DataTypes.STRING, allowNull: false },
     intent: { type: DataTypes.STRING, allowNull: false }, state: { type: DataTypes.STRING, allowNull: false },
@@ -9,7 +10,7 @@ function createService({ sequelize, DataTypes, Op, axios, clientForUser, directo
     payload: { type: DataTypes.TEXT, allowNull: false }, files: { type: DataTypes.TEXT, allowNull: false, defaultValue: "[]" },
   }, { tableName: "clouddock_download_jobs", indexes: [{ unique: true, fields: ["userId", "intent"] }, { fields: ["userId", "createdAt"] }] });
   const paths = directories || new Directories(), rpc = aria || new Aria(axios);
-  let busy = false, refreshing = false, timer;
+  let busy = false, refreshing = false, pruning = false, lastPrunedAt = 0, timer;
   function publicJob(job) {
     const data = JSON.parse(job.payload);
     return { id: job.id, title: data.title, state: job.state, phase: job.phase, error: job.error, target: data.target, selectedCount: data.selectedIds.length, files: JSON.parse(job.files), createdAt: job.createdAt };
@@ -112,11 +113,18 @@ function createService({ sequelize, DataTypes, Op, axios, clientForUser, directo
     } else throw new PublicError("不支持此操作");
     return publicJob(await own(id, userId));
   }
+  async function prune(now = Date.now()) {
+    if (pruning) return 0;
+    pruning = true;
+    try { return await Job.destroy({ where: { state: { [Op.in]: ["completed", "failed"] }, updatedAt: { [Op.lt]: new Date(now - retentionMs) } } }); }
+    catch { return 0; }
+    finally { lastPrunedAt = now; pruning = false; }
+  }
   return {
-    Job, paths, rpc, clientForUser, own, publicJob, create, action, refresh,
+    Job, paths, rpc, clientForUser, own, publicJob, create, action, refresh, prune,
     async list(userId) { return (await Job.findAll({ where: { userId }, order: [["createdAt", "DESC"]], limit: 30 })).map(publicJob); },
-    async initialize() { await Job.sync(); await Job.update({ state: "queued" }, { where: { state: "running" } }); timer = setInterval(() => { void refresh(); void pump(); }, 4000); timer.unref(); void pump(); },
-    async stop() { if (timer) clearInterval(timer); while (busy || refreshing) await new Promise(resolve => setTimeout(resolve, 20)); },
+    async initialize() { await Job.sync(); await Job.update({ state: "queued" }, { where: { state: "running" } }); await prune(); timer = setInterval(() => { void refresh(); void pump(); if (Date.now() - lastPrunedAt >= pruneIntervalMs) void prune(); }, 4000); timer.unref(); void pump(); },
+    async stop() { if (timer) clearInterval(timer); while (busy || refreshing || pruning) await new Promise(resolve => setTimeout(resolve, 20)); },
   };
 }
 module.exports = { createService };

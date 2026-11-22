@@ -1,6 +1,11 @@
 """Isolated Docker smoke test; never transfers or downloads resources."""
+import argparse
 from pathlib import Path
 import json, os, secrets, socket, subprocess, tempfile, time, urllib.error, urllib.request
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--image', default=os.environ.get('CLOUDDOCK_TEST_IMAGE', 'lulalulaluobo/clouddock:1.3.0'))
+args = parser.parse_args()
 
 root = Path(__file__).resolve().parents[1]
 project = 'clouddock-pansou-smoke-' + secrets.token_hex(3)
@@ -15,7 +20,7 @@ with tempfile.TemporaryDirectory(prefix='clouddock-pansou-') as name:
     for line in (root / '.env.example').read_text().splitlines():
         key = line.split('=', 1)[0]; lines.append(key + '=' + values[key] if key in values else line)
     env = base / '.env'; env.write_text('\n'.join(lines) + '\n'); env.chmod(0o600)
-    override = base / 'test.yaml'; override.write_text('services:\n  app:\n    image: clouddock:pansou-dev\n')
+    override = base / 'test.yaml'; override.write_text(f'services:\n  app:\n    image: {args.image}\n')
     compose = ['docker','compose','-f',str(root/'compose.yaml'),'-f',str(root/'compose.pansou.yaml'),'-f',str(override),'--project-directory',str(base),'--env-file',str(env),'-p',project]
     endpoint = f'http://127.0.0.1:{port}'
     def call(route, body=None, token=None):
@@ -26,8 +31,13 @@ with tempfile.TemporaryDirectory(prefix='clouddock-pansou-') as name:
             with urllib.request.urlopen(req, timeout=45) as result: return result.status, json.load(result)
         except urllib.error.HTTPError as error: return error.code, json.load(error)
     try:
-        subprocess.run(compose + ['up','-d','--wait','--wait-timeout','150'],check=True)
-        time.sleep(5)
+        subprocess.run(compose + ['up','-d','--pull','never','--wait','--wait-timeout','150'],check=True)
+        for svc in ('app', 'aria2', 'pansou'):
+            cid = subprocess.check_output(compose + ['ps','-q',svc], text=True).strip()
+            info = json.loads(subprocess.check_output(['docker','inspect',cid], text=True))[0]
+            assert info['State']['Health']['Status'] == 'healthy', f'{svc} 健康检查未通过'
+            assert info['HostConfig']['LogConfig']['Type'] == 'json-file', f'{svc} 日志驱动异常'
+            assert info['HostConfig']['LogConfig']['Config'] == {'max-size': '10m', 'max-file': '3'}, f'{svc} 日志轮转配置异常'
         password='Smoke-'+secrets.token_hex(12)+'Aa1!'
         status, registered=call('/api/user/register', {'username':'pansou_smoke','password':password,'registerCode':values['ADMIN_USER_CODE']})
         assert status==200 and registered.get('success'), '测试管理员注册失败'

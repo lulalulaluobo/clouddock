@@ -5,6 +5,7 @@ const runtimeRequire = createRequire(process.env.RUNTIME_PACKAGE || "/app/packag
 const axios = runtimeRequire("axios"), { Sequelize, DataTypes, Op } = runtimeRequire("sequelize");
 const { PublicError, parseRequest, relative, Directories, Aria, plan } = require("../native/core.cjs");
 const { createService } = require("../native/service.cjs");
+const { BaiduNative } = require("../native/baidu-native.cjs");
 const { createRouter } = require("../native/router.cjs");
 const { prepare, redact } = require("../native/aria-proxy.cjs");
 const { initialize: initializeRuntime } = require("../native/init-runtime.cjs");
@@ -189,4 +190,45 @@ test('带提取码的夸克链接复用当前用户和原生分享客户端，�
     const result = await call({ shareCode: 'abc123', receiveCode: 'aB12' }); assert.equal(result.status, 200);
     assert.deepEqual(requests, [{ shareCode: 'abc123', passcode: 'aB12' }]); assert.equal((await result.json()).data.list[0].fileId, 'one');
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+});
+test('夸克与百度定期清理 30 天前已完成或失败记录，保留近期及进行中任务', async () => {
+  const db = new Sequelize({ dialect: 'sqlite', storage: ':memory:', logging: false });
+  const now = Date.now(), day = 24 * 60 * 60 * 1000;
+  const service = createService({ sequelize: db, DataTypes, Op, axios, clientForUser: async () => ({}), aria: { health: async () => ({ connected: true }), status: async () => null }, directories: new Directories([{ id: 'media', label: '测试', browse: temporary, aria: '/downloads' }]) });
+  const baidu = new BaiduNative({ sqlite3: null, axios, sequelize: db, DataTypes, Op, paths: service.paths, hostRoots: { media: temporary } });
+  try {
+    await service.Job.sync(); await baidu.Job.sync();
+    const putQuark = async (id, state, daysAgo) => {
+      const stamp = new Date(now - daysAgo * day);
+      await service.Job.create({ id, userId: 'u1', intent: 'intent-' + id, state, phase: state, payload: JSON.stringify(input), files: '[]', createdAt: stamp, updatedAt: stamp }, { silent: true });
+      assert.equal(new Date((await service.Job.findByPk(id)).updatedAt).getTime(), stamp.getTime());
+    };
+    await putQuark('old-done', 'completed', 31);
+    await putQuark('old-fail', 'failed', 45);
+    await putQuark('recent-done', 'completed', 29);
+    await putQuark('recent-fail', 'failed', 5);
+    await putQuark('old-paused', 'paused', 40);
+    await putQuark('old-downloading', 'downloading', 40);
+    assert.equal(await service.prune(now), 2);
+    assert.deepEqual((await service.Job.findAll({ order: [['id', 'ASC']] })).map(row => row.id), ['old-downloading', 'old-paused', 'recent-done', 'recent-fail']);
+    await putQuark('boot-old-done', 'completed', 35);
+    await service.initialize();
+    assert.equal(await service.Job.findByPk('boot-old-done'), null);
+
+    const putBaidu = async (id, state, daysAgo) => {
+      const stamp = new Date(now - daysAgo * day);
+      await baidu.Job.create({ id, owner: 'u1', intent: 'intent-' + id, state, data: JSON.stringify({ id, state }), createdAt: stamp, updatedAt: stamp }, { silent: true });
+      assert.equal(new Date((await baidu.Job.findByPk(id)).updatedAt).getTime(), stamp.getTime());
+    };
+    await putBaidu('bd-old-done', 'completed', 31);
+    await putBaidu('bd-old-fail', 'failed', 60);
+    await putBaidu('bd-recent-done', 'completed', 10);
+    await putBaidu('bd-recent-fail', 'failed', 29);
+    await putBaidu('bd-old-downloading', 'downloading', 40);
+    assert.equal(await baidu.prune(now), 2);
+    assert.deepEqual((await baidu.Job.findAll({ order: [['id', 'ASC']] })).map(row => row.id), ['bd-old-downloading', 'bd-recent-done', 'bd-recent-fail']);
+    await putBaidu('bd-boot-old-fail', 'failed', 35);
+    await baidu.initialize();
+    assert.equal(await baidu.Job.findByPk('bd-boot-old-fail'), null);
+  } finally { await service.stop(); await baidu.stop(); await db.close(); }
 });

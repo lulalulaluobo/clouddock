@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM jiangrui1994/cloudsaver@sha256:e2a7395420772ac3e5d9fd9d448ba135efca03ba864b5ad95f6f9b7df516c66c
-ARG CLOUDDOCK_VERSION=1.2.0
+ARG CLOUDDOCK_VERSION=1.3.0
 LABEL org.opencontainers.image.title="CloudDock" \
-      org.opencontainers.image.description="CloudDock: Quark and Baidu share transfers, fnOS downloads and built-in AriaNg" \
+      org.opencontainers.image.description="CloudDock: Quark and Baidu share transfers, PanSou search, fnOS downloads and built-in AriaNg" \
       org.opencontainers.image.url="https://hub.docker.com/r/lulalulaluobo/clouddock" \
       org.opencontainers.image.source="" \
       org.opencontainers.image.revision="" \

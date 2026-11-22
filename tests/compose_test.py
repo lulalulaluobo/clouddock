@@ -13,6 +13,7 @@ def normalized(value):
     return '\n'.join(line.rstrip() for line in value.splitlines() if line.strip() and not line.lstrip().startswith('#'))
 assert normalized(snippets[0]) == normalized((root/'compose.yaml').read_text())
 assert normalized(snippets[1]) == normalized((root/'compose.baidu.yaml').read_text())
+assert normalized(snippets[2]) == normalized((root/'compose.pansou.yaml').read_text())
 with tempfile.TemporaryDirectory(prefix='clouddock-compose-') as directory:
     temp = Path(directory)
     example = (root/'.env.example').read_text().replace('ADMIN_USER_CODE=\n', 'ADMIN_USER_CODE=12345678\n').replace('ARIA2_RPC_SECRET=\n', 'ARIA2_RPC_SECRET='+'a'*64+'\n')
@@ -23,9 +24,16 @@ with tempfile.TemporaryDirectory(prefix='clouddock-compose-') as directory:
     command = ['docker','compose','--project-directory',directory,'--env-file',str(temp/'.env'),'-f',str(root/'compose.yaml')]
     def config(extra):
         return json.loads(subprocess.check_output(command+extra+['config','--format','json'], env=clean_env))
+    def assert_logging(service):
+        assert service['logging']['driver'] == 'json-file'
+        assert service['logging']['options'] == {'max-size': '10m', 'max-file': '3'}
     basic = config([])['services']
-    assert basic['app']['image'] == 'lulalulaluobo/clouddock:1.2.0'
+    assert basic['app']['image'] == 'lulalulaluobo/clouddock:1.3.0'
     assert basic['app']['platform'] == basic['aria2']['platform'] == 'linux/amd64'
+    assert basic['app']['depends_on']['aria2']['condition'] == 'service_healthy'
+    assert_logging(basic['app']); assert_logging(basic['aria2'])
+    aria_hc = ' '.join(basic['aria2']['healthcheck']['test'])
+    assert '127.0.0.1:6800/jsonrpc' in aria_hc and 'system.listMethods' in aria_hc and 'a'*64 not in aria_hc
     assert 'BAIDU_NAS_UID' not in basic['app']['environment']
     assert basic['app']['environment']['ARIA2_RPC_SECRET'] == basic['aria2']['environment']['RPC_SECRET']
     merged = config(['-f',str(root/'compose.baidu.yaml')])['services']
@@ -42,8 +50,10 @@ with tempfile.TemporaryDirectory(prefix='clouddock-compose-') as directory:
     assert with_pansou['app']['environment']['PANSOU_URL'] == 'http://pansou:8888'
     assert 'ports' not in with_pansou['pansou']
     assert '@sha256:' in with_pansou['pansou']['image']
+    assert_logging(with_pansou['pansou'])
+    assert '127.0.0.1:8888/api/health' in ' '.join(with_pansou['pansou']['healthcheck']['test'])
     combined = config(['-f',str(root/'compose.baidu.yaml'),'-f',str(root/'compose.pansou.yaml')])['services']
     assert set(combined) == {'app','aria2','pansou'}
     assert combined['app']['environment']['PANSOU_URL'] == 'http://pansou:8888'
     assert combined['app']['environment']['BAIDU_NAS_UID'] == '1000'
-print('PASS: README matches Compose; generic/fnOS configuration, version, platform and mounts validated')
+print('PASS: README matches Compose; generic/fnOS/PanSou configuration, healthcheck, logging, version, platform and mounts validated')

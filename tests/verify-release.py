@@ -65,6 +65,12 @@ for route, marker in [("/clouddock/progress.html", "返回搜索"), ("/clouddock
 
 digest = hashlib.sha256((root / "config/env").read_bytes()).hexdigest()
 compose = ["docker", "compose", "-f", str(Path(__file__).resolve().parents[1] / "compose.yaml"), "--project-directory", str(root), "--env-file", str(root / ".env"), "-p", args.project]
+for svc in ("app", "aria2"):
+    cid = subprocess.check_output(compose + ["ps", "-q", svc], text=True).strip()
+    info = json.loads(subprocess.check_output(["docker", "inspect", cid], text=True))[0]
+    assert info["State"]["Health"]["Status"] == "healthy", f"{svc} 健康状态异常"
+    assert info["HostConfig"]["LogConfig"]["Type"] == "json-file"
+    assert info["HostConfig"]["LogConfig"]["Config"] == {"max-size": "10m", "max-file": "3"}
 subprocess.run(compose + ["up", "-d", "--no-deps", "--force-recreate", "--pull", "never", "app"], check=True, stdout=subprocess.DEVNULL)
 for attempt in range(30):
     try:

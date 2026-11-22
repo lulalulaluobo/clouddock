@@ -1,29 +1,26 @@
-# PanSou 搜索源（源码开发版）
+# PanSou 搜索源
 
-PanSou 作为独立服务，通过容器内网提供搜索和链接检测。CloudDock 原有频道、资源选择和转存流程保持可用；搜索栏可选择“原有频道”“全部来源”或“PanSou”。当前源码尚未发布为新的 Docker Hub 正式镜像，不能用 1.2.0 镜像直接启用本功能。
+PanSou 作为独立服务，通过容器内网提供搜索和链接检测。CloudDock 原有频道、资源选择和转存流程保持可用；搜索栏可选择“原有频道”“全部来源”或“PanSou”。该功能自 CloudDock **1.3.0** 起内置在正式镜像中；旧版 `1.2.0` 及更早镜像不包含此功能。
 
-## 源码构建和启动
+## Compose 启动
 
-准备基础 Compose 所需的 `.env` 和数据目录后，在项目根目录执行：
-
-```bash
-python3 scripts/prepare-web.py
-docker build --platform linux/amd64 --build-arg CLOUDDOCK_VERSION=1.2.0-pansou-dev -t lulalulaluobo/clouddock:1.2.0-pansou-dev .
-```
-
-将 `.env` 中的 `CLOUDDOCK_VERSION` 设置为 `1.2.0-pansou-dev`，然后启动：
+准备基础 Compose 所需的 `.env` 和数据目录，将 `.env` 中的 `CLOUDDOCK_VERSION` 设置为 `1.3.0`（或更新版本），放置 `compose.pansou.yaml` 后启动：
 
 ```bash
+docker compose -f compose.yaml -f compose.pansou.yaml --env-file .env config --quiet
+docker compose -f compose.yaml -f compose.pansou.yaml pull
 docker compose -f compose.yaml -f compose.pansou.yaml up -d
 ```
 
 飞牛百度用户同时带上百度覆盖配置：
 
 ```bash
+docker compose -f compose.yaml -f compose.baidu.yaml -f compose.pansou.yaml --env-file .env config --quiet
+docker compose -f compose.yaml -f compose.baidu.yaml -f compose.pansou.yaml pull
 docker compose -f compose.yaml -f compose.baidu.yaml -f compose.pansou.yaml up -d
 ```
 
-之后更新或重建也需要带上同样的 `-f` 参数。覆盖配置中的 PanSou 不映射宿主机端口；镜像固定到已验证的 digest，默认启用影视搜索插件 `meitizy,jutoushe,duoduo`，可在 `.env` 用 `PANSOU_PLUGINS` 覆盖。PanSou 插件搜索第三方站点，结果数量和响应时间取决于站点可用性。CloudDock 仅展示夸克和百度网盘链接，并按标题过滤明确标记为小说或电子书的结果；标题无法可靠标识的资源仍可能混入。
+之后更新或重建也需要带上同样的 `-f` 参数。覆盖配置中的 PanSou 不映射宿主机端口，自带容器健康检查与日志体积限制；镜像固定到已验证的 digest，默认启用影视搜索插件 `meitizy,jutoushe,duoduo`，可在 `.env` 用 `PANSOU_PLUGINS` 覆盖。PanSou 插件搜索第三方站点，结果数量和响应时间取决于站点可用性。CloudDock 仅展示夸克和百度网盘链接，并按标题过滤明确标记为小说或电子书的结果；标题无法可靠标识的资源仍可能混入。
 
 ## CloudDock 设置
 
@@ -38,7 +35,7 @@ PanSou 默认只搜索插件来源，避免与 CloudDock 原有 Telegram 频道�
 ```bash
 python3 scripts/prepare-web.py
 node --test tests/pansou.test.cjs tests/web.test.cjs tests/share-link.test.cjs tests/visibility.test.cjs
-docker build --platform linux/amd64 --build-arg CLOUDDOCK_VERSION=1.2.0-pansou-dev -t clouddock:pansou-dev .
+docker build --platform linux/amd64 --build-arg CLOUDDOCK_VERSION=1.3.0 -t lulalulaluobo/clouddock:1.3.0 .
 python3 tests/pansou-compose-smoke.py
 ```
 

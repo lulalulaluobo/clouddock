@@ -7,7 +7,18 @@ services:
   pansou:
     image: ghcr.io/fish2018/pansou@sha256:d371fe5caa87794414dd54cda063fcfc456d5013e18b65dbf1f6ca17f6299492
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       PORT: "8888"
       ENABLED_PLUGINS: ${PANSOU_PLUGINS:-meitizy,jutoushe,duoduo}
       TZ: ${TZ:-Asia/Shanghai}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- -T 5 http://127.0.0.1:8888/api/health | grep -q '\"status\":\"ok\"'"]
+      interval: 20s
+      timeout: 8s
+      retries: 3
+      start_period: 15s
